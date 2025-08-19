@@ -53,14 +53,15 @@ from math import cos, sin, atan, pi, pow, sqrt, dist
 
 class Geometry():
 
-    def __init__(self, R, r_hub, N, RPM, r_R_known, c_R_known, beta_known, beta75, airfoil_known, pitch, kind):
+    def __init__(self, R, r_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep_known, beta75, airfoil_known, pitch, kind):
 
         self.R = R                                                             
         self.r_hub = r_hub                      
         self.N = N                              
         self.RPM = RPM                          
         self.r_R_known = r_R_known              
-        self.c_R_known = c_R_known              
+        self.c_R_known = c_R_known
+        self.sweep_known = sweep_known              
         self.beta_known = beta_known            
         self.beta75 = beta75                     
         self.airfoil_known =  airfoil_known     
@@ -76,6 +77,7 @@ class Geometry():
         '''
         self.fc = interp1d(self.r_R_known,self.c_R_known, kind=self.interp_kind, fill_value='none') 
         self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
+        self.fs = interp1d(self.r_R_known,self.sweep_known, kind=self.interp_kind, fill_value='none')
         self.fx = interp1d(self.R*self.r_R_known,self.x, kind=self.interp_kind, fill_value='none')
         self.fz = interp1d(self.R*self.r_R_known,self.z, kind=self.interp_kind, fill_value='none')
 

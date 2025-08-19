@@ -52,11 +52,11 @@ def initialize_vars(z,geom,dx,J):
 
 def section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero):
 
-    beta = np.deg2rad(geom.fb(x))
-    beta +=np.deg2rad(geom.pitch)
-        
+    beta = np.deg2rad(  geom.fb(x) )
+    beta +=np.deg2rad(  geom.pitch )
+    sweep = np.deg2rad( geom.fs(x) )    
     # evaluate chord at r/R station (multiply for R because the interpolation returns c/R)
-    chord = geom.fc(x)
+    chord = geom.fc(x)*geom.R
     Vr = np.sqrt(Vinf**2 + (omega*geom.R*x)**2)  # effective velocity
     phi = np.arctan(Vinf/(omega*geom.R*x))
     
@@ -65,7 +65,7 @@ def section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero):
 
     # evaluate Lift curve slope and Alpha zero Lift using aero class object.
     if aero.aero_method == 1 or aero.aero_method == 2:
-        cla = aero.aero_params['Cl_alpha']
+        cla = aero.aero_params['Cl_alpha']*np.cos( sweep )
         if aero.M_corr:
             cla/=(1-(Vr/a_sound)**2)**0.5
         bo = aero.aero_params['alpha_0_lift']
@@ -75,10 +75,10 @@ def section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero):
     # define beta with respect to zero-lift line
     beta -= bo
 
-    return sigma, chord, cla, Vr, phi, beta, bo
+    return sigma, chord, sweep, cla, Vr, phi, beta, bo
 
 
-def section_performance(x, dx, J, lam, sigma, chord, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature=True, thickness=True):
+def section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature=True, thickness=True):
     '''
     This function allows the calculation of thrust and power coefficients for a given blade section adopting the momentum theory.
     Theory in McCormick, B. W., (1967), "Aerodynamics of V/STOL Flight", p. ...
@@ -124,7 +124,7 @@ def section_performance(x, dx, J, lam, sigma, chord, geom, aero, alpha_i, beta, 
         cl,cd = aero.clcd2(Re_ref = 1e+6, Re = Vr*chord/ni, M = Vr/a_sound, AoA = alpha)
     else: 
         cl, cd = aero.clcd3(AoA = np.rad2deg(alpha), Re_ref = 1e+6, Re = Vr*chord/ni, M = Vr/a_sound, x = x)
-    
+    cl = cl*np.cos( sweep ) # Corrects just section cl_a without alpha
     # calculate section contribute of ct and cp
     delct = (np.pi/8)*((J**2) + ((np.pi*x)**2))*sigma*((cl*np.cos(phi+alpha_i+dalpha_c+dalpha_t))
                                                     - (cd*np.sin(phi+alpha_i+dalpha_c+dalpha_t)))*dx
@@ -195,7 +195,7 @@ def BEMT_timp(z,J,dx,geom,aero, curvature=True, thickness=True, hub_corr=True):
     cp, ct = 0.,0.
     for x in x_vec:
         # evaluate section characteristics
-        sigma, chord, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
+        sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
         
         # calculate alpha
         alpha_i = (0.5*np.sqrt((((lam/x)+((sigma*cla*Vr)/(8*Vt*x**2)))**2)+
@@ -205,7 +205,7 @@ def BEMT_timp(z,J,dx,geom,aero, curvature=True, thickness=True, hub_corr=True):
         wa = Vr*alpha_i*np.cos(phi+alpha_i)
         
         # evaluate section performance
-        delct, delcp= section_performance(x, dx, J, lam, sigma, chord, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
         ct += delct
         cp += delcp
     
@@ -247,7 +247,7 @@ def BEMT_tvorpd(z,J,dx,geom,aero,curvature=True, thickness=True, hub_corr=True):
     cp, ct = 0.,0.
     for x in x_vec:
         # evaluate section characteristics
-        sigma, chord, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
+        sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
         
         # calculate alpha
         # calculate inflow angle at blade tip
@@ -269,7 +269,7 @@ def BEMT_tvorpd(z,J,dx,geom,aero,curvature=True, thickness=True, hub_corr=True):
         wa = Vr*alpha_i*np.cos(phi+alpha_i)
         
         # evaluate section performance 
-        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
         ct += delct
         cp += delcp
     
@@ -310,7 +310,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
     cp, ct = 0.,0.
     for x in x_vec:
         # evaluate section characteristics
-        sigma, chord, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
+        sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
         
         # calculate alpha
         # calculate inflow angle at blade tip
@@ -379,7 +379,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
         
         
         # evaluate section performance 
-        delct, delcp= section_performance(x, dx, J, lam, sigma, chord, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+        delct, delcp= section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
         ct += delct
         cp += delcp
         
