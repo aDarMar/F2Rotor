@@ -188,21 +188,21 @@ class Aerodynamics():
 
         # --- Effective CLmax is limited by Mach effects ---
 
-        DMSTALL = (CDMSTALL / CDMFACTOR) ** (1.0 / MEXP)
-        CLMAXM = max(0.0, (self.aero_params['Mach_crit'] + DMSTALL - M) / CLMFACTOR) + self.aero_params['Cl_at_cd_min']
-        CLMAX = min(self.aero_params['Cl_max'], CLMAXM)
-        CLMINM = min(0.0, -(self.aero_params['Mach_crit'] + DMSTALL - M) / CLMFACTOR) + self.aero_params['Cl_at_cd_min']
-        CLMIN = max(self.aero_params['Cl_min'], CLMINM)
+        DMSTALL = ( CDMSTALL/CDMFACTOR ) ** (1.0 / MEXP)
+        CLMAXM  = max( 0.0, (self.aero_params['Mach_crit'] + DMSTALL - M) / CLMFACTOR) + self.aero_params['Cl_at_cd_min']
+        CLMAX   = min( self.aero_params['Cl_max'], CLMAXM)
+        CLMINM  = min( 0.0, -(self.aero_params['Mach_crit'] + DMSTALL - M) / CLMFACTOR) + self.aero_params['Cl_at_cd_min']
+        CLMIN   = max( self.aero_params['Cl_min'], CLMINM)
 
         # --- CL limiter function (turns on after +-stall) ---
 
         ECMAX = math.exp(min(200.0, float((lift_coeff - CLMAX) / self.aero_params['Cl_incr_to_stall'])))
         ECMIN = math.exp(min(200.0, float((CLMIN - lift_coeff) / self.aero_params['Cl_incr_to_stall'])))
-        CLLIM = self.aero_params['Cl_incr_to_stall'] * math.log((1.0 + ECMAX) / (1.0 + ECMIN))
+        CLLIM = self.aero_params['Cl_incr_to_stall'] * math.log( (1.0 + ECMAX) / (1.0 + ECMIN) )
 
         # --- Subtract off a (nearly unity) fraction of the limited CL function ---
 
-        FSTALL = self.aero_params['Cl_alpha_stall'] / self.aero_params['Cl_alpha']
+        FSTALL     = self.aero_params['Cl_alpha_stall'] / self.aero_params['Cl_alpha']
         lift_coeff = lift_coeff - (1.0 - FSTALL) * CLLIM
 
         # ------------------------- Drag coefficient --------------------------#
@@ -218,8 +218,8 @@ class Aerodynamics():
         # --- Post Stall Drag ---
 
         FSTALL = self.aero_params['Cl_alpha_stall'] / self.aero_params['Cl_alpha']
-        DCDX = (1.0 - FSTALL) * CLLIM / (PG * self.aero_params['Cl_alpha'])
-        DCD = 2.0 * DCDX ** 2
+        DCDX   = (1.0 - FSTALL) * CLLIM / (PG * self.aero_params['Cl_alpha'])
+        DCD    = 2.0 * DCDX ** 2
 
         # --- Compressibility Drag ---
 

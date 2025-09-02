@@ -52,13 +52,13 @@ def initialize_vars(z,geom,dx,J):
 
 def section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero):
 
-    beta = np.deg2rad(  geom.fb(x) )
-    beta +=np.deg2rad(  geom.pitch )
+    beta  = np.deg2rad( geom.fb(x) )
+    beta  +=np.deg2rad( geom.pitch )
     sweep = np.deg2rad( geom.fs(x) )    
     # evaluate chord at r/R station (multiply for R because the interpolation returns c/R)
     chord = geom.fc(x)*geom.R
-    Vr = np.sqrt(Vinf**2 + (omega*geom.R*x)**2)  # effective velocity
-    phi = np.arctan(Vinf/(omega*geom.R*x))
+    Vr    = np.sqrt(Vinf**2 + (omega*geom.R*x)**2)  # effective velocity
+    phi   = np.arctan(Vinf/(omega*geom.R*x))
     
     # calculate solidity
     sigma = (geom.N*chord)/(np.pi*geom.R)
@@ -308,6 +308,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
 
     # start loop over blade sections
     cp, ct = 0.,0.
+    sects  = [ [],[],[],[],[],[] ]
     for x in x_vec:
         # evaluate section characteristics
         sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
@@ -379,12 +380,20 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
         
         
         # evaluate section performance 
-        delct, delcp= section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+        
         ct += delct
         cp += delcp
         
+        # Saves data for plotting
+        sects[0].append( delct )
+        sects[1].append( delcp )
+        sects[2].append( omega*geom.R*np.cos( sweep ) )
+        sects[3].append( cla )                                      # Section Lift Coefficient
+        sects[4].append( np.sqrt( Vinf**2 + (omega*geom.R*x)**2 ) ) # Local Mach Number
+        sects[5].append( aero.aero_params["Mach_crit"] )
     # hub correction
     if hub_corr:
         ct = hub_loss(ct,J,D,geom)
     
-    return ct,cp
+    return ct,cp,sects

@@ -3,31 +3,36 @@ import matplotlib.pyplot as plt
 import numpy as np
 import bemt
 import aero
-
+from sweep_functions import find_crit_sec
+import aux_functs as af
 # Test case according to data from naca report No. 339 "FULL SCALE WIND TUNNEL TESTS WITH A SERIES OF PROPELLERS OF DIFFERENT DIAMETERS ON A SINGLE FUSELAGE"  
 # by F. E. Weick (1931)  
 
 
 # INPUT DATA
-R = 1.60         #Blade radius (m)
-R_hub = 0.152    #Hub radius (m)  
-N = 2            #Number of blades
-RPM = 1000       #revolutions per minute
+R     = 1.52            # Blade radius (m)
+R_hub = 0.291           # Hub radius (m)  
+N     = 3               # Number of blades
+RPM   = 1000            # revolutions per minute
 
 # stations along the blade (r/R)
-r_R_known  = [ 0.0940,  0.1587,    0.1905,    0.2857,    0.3810,    0.4762,  0.5714,    0.6667,    0.7619,    0.8571,    0.9524,    1.0000]
+r_R_known  = [ 0.19,0.2,0.292857143,0.398214286,0.498214286,0.598214286,0.698214286,0.798214286,0.898214286,0.946428571,0.99 ]
+# thickness distribution   (t/c)
+t_c_known  = [ 0.160065253,0.160065253,0.19954323,0.25050571,0.295008157,0.31725938,0.302903752,0.264143556,0.203132137,0.160783034,0.117 ]
 # chord distribution   (c/R)
-c_R_known  = [ 0.0615, 0.1106,    0.1168,    0.1283 ,   0.1335,    0.1338,    0.1297,  0.1195,    0.1037,    0.0827,    0.0594,       0.02]
+c_R_known  = [ 0.345550265,0.345550265,0.220717781,0.110538336,0.065676998,0.047732463,0.039836868,0.036247961,0.034094617,0.033376835,0.0329 ]
 # pitch distribution measured from the chord (deg)
-beta_known = [ 42.4,   42.4,      39.1,      35.1,      30.2,      26.7,      23.9,   21.75,     20.01,     18.8,      17.3,      16 ] 
+beta_known = [ 58.87349081,58.87349081,52.22635514,45.74073153,40.27287413,35.7188407,31.84678,28.77653408,26.09130417,25.00543118,24.22 ]
+
 # sweep distribution measured at c/4
-sweep_known = [ 0,0,0,0,0,0,0,0,0,0,0,0 ]
-#sweep_known = [ 40,40,40,40,40,40,40,40,40,40,40,40 ]
+sweep_known = []
+sweep_known.append( [ 0,0,0,0,0,0,0,0,0,0,0 ] )
+#sweep_known.append( [ 40,40,40,40,40,40,40,40,40,40,40,40 ] )
 #pitch angle imposed at 75% along the blade (deg)
-beta75 = 15.5    
+beta75 = 30   
 
 # airfoils along the blade: NACA 4 and 5-digits or 'custom'
-airfoil_known = ['custom','custom', 'custom',  'custom', 'custom','custom','custom', 'custom','custom','custom','custom','custom']
+airfoil_known = [ 'custom','custom','custom', 'custom',  'custom', 'custom','custom','custom', 'custom','custom','custom' ]
 
 pitch       = 0.0                                                                     # measured from nominal pitch (deg)
 v_J         = np.linspace(0.152, 0.856, 80)                                           # range of J=V/nD
@@ -47,10 +52,10 @@ CT_3  = []
 CP_3  = []
 ETA_3 = []
 
-g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep_known, beta75, airfoil_known, pitch,interp_kind )
+#g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep_known, beta75, airfoil_known, pitch,interp_kind )
 xrot_params = {
     'alpha_0_lift': np.deg2rad(-3.3),
-    'Cl_alpha': 6.28*1,
+    'Cl_alpha': 6.28*0.815,
     'Cl_alpha_stall': 0.1,
     'Cl_max': 1.5,
     'Cl_min': -0.5,
@@ -59,53 +64,74 @@ xrot_params = {
     'Cl_at_cd_min': 0.5,  
     'dCd_dCl2': 0.004,
     'Mach_crit': 0.8,
-    'Re_scaling_exp': -0.4
+    'Re_scaling_exp': -0.4,
+    'Cd' : 0.001
  }
 Aero = aero.Aerodynamics( 2, True, True, xrot_params )
 
-for J in v_J:
-    #Computing C_T, C_P and eta and storing them in a vector
-    ct_1, cp_1=bemt.BEMT_timp(z, J, dx, g, Aero, False, False, False)
+af.calc_sects( [ xrot_params['alpha_0_lift'], ( xrot_params['Cl_max']/xrot_params['Cl_alpha'] + xrot_params['alpha_0_lift'] )*10.5],Aero,5e6,0.001 )
 
-    CT_1.append(ct_1)
-    CP_1.append(cp_1)
-    if ct_1 >= 0:
-        ETA_1.append(J*ct_1/cp_1)
-    else:
-        ETA_1.append(np.nan)
-
-    ct_2, cp_2=bemt.BEMT_tvorpd(z, J, dx, g, Aero, True, False)
-
-    CT_2.append(ct_2)
-    CP_2.append(cp_2)
-    if ct_2 >= 0:
-        ETA_2.append(J*ct_2/cp_2)
-    else:
-        ETA_2.append(np.nan)
-
-    ct_3, cp_3=bemt.BEMT_tvor(z, J, dx, g, Aero, True, False)
-
-    CT_3.append(ct_3)
-    CP_3.append(cp_3)
-    if ct_3 >= 0:
-        ETA_3.append(J*ct_3/cp_3)
-    else:
-        ETA_3.append(np.nan)
+res_J = []
 
 
+for sweep in sweep_known:
+    g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep, beta75, airfoil_known, pitch,interp_kind )
+
+    for J in v_J:
+        #Computing C_T, C_P and eta and storing them in a vector
+        #ct_1, cp_1=bemt.BEMT_timp(z, J, dx, g, Aero, False, False, False)
+
+        #CT_1.append(ct_1)
+        #CP_1.append(cp_1)
+        #if ct_1 >= 0:
+        #    ETA_1.append(J*ct_1/cp_1)
+        #else:
+        #    ETA_1.append(np.nan)
+
+        #ct_2, cp_2=bemt.BEMT_tvorpd(z, J, dx, g, Aero, True, False)
+
+        #CT_2.append(ct_2)
+        #CP_2.append(cp_2)
+        #if ct_2 >= 0:
+        #    ETA_2.append(J*ct_2/cp_2)
+        #else:
+        #    ETA_2.append(np.nan)
+
+        ct_3, cp_3, sects = bemt.BEMT_tvor(z, J, dx, g, Aero, True, False)
+        
+        # --------------------------- Data Storage --------------------------- #
+        res_J[0].append( J*RPM/60*g.R*2 )                           # V_infty
+        res_J[1].append( find_crit_sec( x,sects[4],sects[5] ) )     # r/R critical
+        res_J[2].append(ct_3)                                       # Ct
+        res_J[3].append(cp_3)                                       # Cp
+        res_J[6].append(sects)                                      # 
+
+        #CT_3.append(ct_3)
+        #CP_3.append(cp_3)
+        if ct_3 >= 0:
+            #ETA_3.append(J*ct_3/cp_3)
+            res_J[4].append( J*ct_3/cp_3 )
+        else:
+            #ETA_3.append(np.nan)
+            res_J[4].append( np.nan )
+        res_J[5].append( J )
+    rests[iS].append( res_J ) 
+# --------------------------- Plots --------------------------- # 
 # Array conversion
-Ct_1=np.array(CT_1)
-Cp_1=np.array(CP_1)
-Eta_1=np.array(ETA_1)
+#Ct_1  = np.array(CT_1)
+#Cp_1  = np.array(CP_1)
+#Eta_1 = np.array(ETA_1)
 
-Ct_2=np.array(CT_2)
-Cp_2=np.array(CP_2)
-Eta_2=np.array(ETA_2)
+#Ct_2=np.array(CT_2)
+#Cp_2=np.array(CP_2)
+#Eta_2=np.array(ETA_2)
 
-Ct_3=np.array(CT_3)
-Cp_3=np.array(CP_3)
-Eta_3=np.array(ETA_3)
+#Ct_3=np.array(CT_3)
+#Cp_3=np.array(CP_3)
+#Eta_3=np.array(ETA_3)
 
+
+'''
 # #####################################################
 # Values obtained by Weick
 J_Weick =[0.556 , 0.558 , 0.575 , 0.573 , 0.580 , 0.585 ,
@@ -138,25 +164,26 @@ Eta_Weick =[0.806 , 0.791 , 0.811 , 0.804 , 0.800 , 0.806 ,
 #Plot
 
 plt.figure(figsize=(5, 6))
-plt.plot(v_J, Ct_1, '--', label='Ct: timp', color='k')
-plt.plot(v_J, Ct_2, '-.', label='Ct: tvorpd', color='k')
-plt.plot(v_J, Ct_3, '-', label='Ct: tvor', color='k')
-plt.plot(v_J, Cp_1, '--', label='Cp: timp', color='r')
-plt.plot(v_J, Cp_2, '-.', label='Cp: tvorpd', color='r')
-plt.plot(v_J, Cp_3, '-', label='Cp: tvor', color='r')
-plt.plot(J_Weick, Ct_Weick, 'o', markersize=5 , label='Ct: Weick', color='b')
-plt.plot(J_Weick, Cp_Weick, 'o', markersize=5, label='Cp: Weick', color='m')
+#plt.plot(v_J, Ct_1, '--', label='Ct: timp', color='k')
+#plt.plot(v_J, Ct_2, '-.', label='Ct: tvorpd', color='k')
+plt.plot(v_J, , '-', label='Ct: tvor', color='k')
+#plt.plot(v_J, Cp_1, '--', label='Cp: timp', color='r')
+#plt.plot(v_J, Cp_2, '-.', label='Cp: tvorpd', color='r')
+plt.plot(v_J, , '-', label='Cp: tvor', color='r')
+#plt.plot(J_Weick, Ct_Weick, 'o', markersize=5 , label='Ct: Weick', color='b')
+#plt.plot(J_Weick, Cp_Weick, 'o', markersize=5, label='Cp: Weick', color='m')
 plt.xlabel('J=V/nD')
 plt.legend()
 plt.grid(True)
 
 
 plt.figure(figsize=(5,6))
-plt.plot(v_J, Eta_1, '--', label='$\eta$: timp', color='k')
-plt.plot(v_J, Eta_2, '-.', label='$\eta$: tvorpd', color='k')
+#plt.plot(v_J, Eta_1, '--', label='$\eta$: timp', color='k')
+#plt.plot(v_J, Eta_2, '-.', label='$\eta$: tvorpd', color='k')
 plt.plot(v_J, Eta_3, '-', label='$\eta$: tvor', color='k')
-plt.plot(J_Weick, Eta_Weick, 'o', markersize=5, label='$\eta$: Weick', color='b')
+#plt.plot(J_Weick, Eta_Weick, 'o', markersize=5, label='$\eta$: Weick', color='b')
 plt.xlabel('J=V/nD')
 plt.legend()
 plt.grid(True)
 plt.show()
+'''
