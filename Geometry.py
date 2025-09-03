@@ -44,7 +44,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d, splprep, splev
+from scipy.interpolate import interp1d, splprep, splev, Akima1DInterpolator
 import pyvista as pv
 import os
 import pandas as pd
@@ -75,9 +75,28 @@ class Geometry():
         fc,fb,fx,fz are all 1D interpolator generated when the Geometry class is defined. 
         They are used as tools for BEMT module (fc,fb) and blade geometry generation (fx,fz)
         '''
-        self.fc = interp1d(self.r_R_known,self.c_R_known, kind=self.interp_kind, fill_value='none') 
-        self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
-        self.fs = interp1d(self.r_R_known,self.sweep_known, kind=self.interp_kind, fill_value='none')
+        if self.interp_kind == 'akima' or self.interp_kind == 'makima':
+            # Chord
+            self.fc = Akima1DInterpolator(self.r_R_known, self.c_R_known)
+            # Sweep
+            self.fs = Akima1DInterpolator(self.r_R_known, self.sweep_known)
+            # Pitch Angle
+            self.fb = Akima1DInterpolator(self.r_R_known, self.beta_known)
+            self.beta_known = [beta - self.fb(0.75) + self.beta75 for beta in self.beta_known]
+            self.fb = Akima1DInterpolator(self.r_R_known, self.beta_known)
+            self.interp_kind = 'cubic' # CAMBIAREEEE
+            # CAPIREEEE
+            #self.fx = Akima1DInterpolator(self.R * self.r_R_known, self.x)
+            #self.fz = Akima1DInterpolator(self.R * self.r_R_known, self.z)
+        else:
+            self.fc = interp1d(self.r_R_known,self.c_R_known, kind=self.interp_kind, fill_value='none')
+            # Sweep
+            self.fs = interp1d(self.r_R_known,self.sweep_known, kind=self.interp_kind, fill_value='none')
+            # Pitch Angle
+            self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
+            self.beta_known = [ beta - self.fb(0.75) + self.beta75 for beta in self.beta_known ]
+            self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
+        # CAPIREEEE
         self.fx = interp1d(self.R*self.r_R_known,self.x, kind=self.interp_kind, fill_value='none')
         self.fz = interp1d(self.R*self.r_R_known,self.z, kind=self.interp_kind, fill_value='none')
 
@@ -104,7 +123,6 @@ class Geometry():
 
         return path_dir                     # return the path for further actions
     
-
     def init_blade(self):
         '''
         This function initialize the blade generation by creating airfoils (AF) imposed in airfoil_known.
@@ -162,7 +180,6 @@ class Geometry():
 
         return x, z                                                                                 # return both matrices
 
-
     def chord(self,AF):
         '''
         This function provides the chord computation without the need to provide the span station but based on the Euclidean distance 
@@ -189,7 +206,6 @@ class Geometry():
 
         return chord
     
-
     def twist_rspct_75(self):
         '''
         This function returns the twist distribution for a given beta75 for an arbitrary beta distribution.
@@ -211,7 +227,6 @@ class Geometry():
         beta_known_sign = beta_known_sign_zero + self.beta75            # translate again to obtain the twist distribution according to nominal twist input beta75
 
         return beta_known_sign                                          # return the required twist distribution
-    
     
     def gen_AF_txt(self):
         '''
@@ -255,8 +270,6 @@ class Geometry():
                            
             elif airfoil.lower() == 'custom':                               # if it is custom
                 print(f"you have to insert airfoil_{i+1} manually")         # you have to insert it manually
-
-
 
     def naca4(self,number, n=240, finite_TE = False, half_cosine_spacing=True):
         '''
@@ -335,8 +348,6 @@ class Geometry():
         AF_xz = np.column_stack((X, Z))                                                     # make a 2d array: first column (chordwise), second column (thickness)
 
         return AF_xz                                                                        # return the 2d array 
-    
-
     
     def naca5(self, number, n=240, finite_TE = False, half_cosine_spacing = True):
         '''
@@ -432,7 +443,6 @@ class Geometry():
 
         return AF_xz                                                                            # return the 2d array 
 
-
     def AF_scale(self,AF_xz,c):
         '''
         This function scale the airfoil according to the reference chord C (chord at which the airfoil is generated)
@@ -454,7 +464,6 @@ class Geometry():
 
         return AF_xz_scl                # return the 2d array 
         
-
     def AF_trasl(self,AF):
         '''
         This function translate the airfoil by 25% of the chord (Centre Of Rotation, COR)
@@ -483,7 +492,6 @@ class Geometry():
 
         return AF_trasl         # return the 2d array 
     
-    
     def AF_rot(self,AF_xz,beta_query):
         '''
         This function rotates the airfoil by applying a rotation matrix.
@@ -509,8 +517,6 @@ class Geometry():
         
         return AF_xz_rot                                                            # return the 2d array
         
-    
-    
     def adapt_AF_points(self, AF, n):
         '''
         This function change the number of points of the input airfoil according to the input number n.
@@ -548,7 +554,6 @@ class Geometry():
 
         return AF                                                   # return the 2d array
 
-    
     def AF_span_interp(self, y_query):
         '''
         This function provides interpolated coordinates for a generic span station in a two columns array
@@ -574,8 +579,6 @@ class Geometry():
         AFint = np.hstack([xint,zint])          # concatenate in 2d array 
 
         return AFint                            # return the 2d array
-    
-
     
     def AF_max_tk(self,y_query):
         '''
@@ -605,7 +608,6 @@ class Geometry():
         tk_max = max(np.sqrt(np.sum((p2 - p1) ** 2, axis=1)))   # find max thickness comparing coupled upper and lower points (works properly even if the number of points is odd)
 
         return tk_max                                           # return the max thickness value
-
 
     def gen_blade(self,nspan=100, wireframe = True):
         '''

@@ -1,8 +1,9 @@
-from math import sqrt
+from math import sqrt, acos
 from os import path
 import re
 from math import pi
-from numpy import linspace
+from numpy import linspace,array
+from ambiance import Atmosphere
 
 def max_Vifty( V_bounds,x,omega,a_sound,geom,aero ):
     '''
@@ -36,6 +37,65 @@ def find_crit_sec( x,Mvec,Mcrit ):
     for iM,M in enumerate(Mvec):
         if M > Mcrit[iM]:
             return x[iM]
+    return -1
+#   <----------------------------- SWEEP ----------------------------->   #
+def sweep_sample(roR_i,CHS,R,Mcr,omega = 0,c = 0,V_ifty = 0):
+    '''
+    Function that evaluates section sweep at c/4. It supports 3 kinds of sweep laws:
+        1. A distribution to obtain Mperp = Mdd if M(r) > MDD, 0 otherwise
+        2. A distribrion to obtain M_eff = Mdd if M_eff(r) > MDD
+        3. Polynomial law of the kind a*(x-x0)**b if x>x0, c otherwise
+
+    Input
+    - roR_i : array of position of sections along blade as franction of the radius
+    - CHS   : flag that specifies the distribution of sweep
+    CHS = 1,2 - optimal sweep distribution for which M_perp = Mcr
+    - R     : blade radius [m]
+    - Mcr   : section critical Mach number (only one profile per blade)
+    - omega : blade rotation speed [rad/s]
+    - c     : flight altitude [m]
+    CHS = 2
+    - V_ifty: flight speed [m/s]
+    CHS = 3 - custom polynomial law a*(r/R)**b if r/R > rbar/R; c otherwise
+    - R     : multiplicative constant
+    - Mcr   : exponent of the polynomial
+    - omega : r/R at which the sweep starts
+    - c     : constant sweep
+    Output
+    - sweep : sweep evaluated at roR_i [deg]
+    '''
+    roR   = array(roR_i)
+    sweep = linspace( 0,0,len(roR) )
+    a_sound = Atmosphere(c*1000).speed_of_sound
+    if CHS == 1:
+        for nr,rR in enumerate(roR):
+            arg = Mcr*a_sound/(omega*rR*R)
+            if abs(arg) > 1:
+                sweep[nr] = 0
+            else:
+                sweep[nr] = acos(arg)*180/pi
+        #sweep = acos( Mcr*a_sound/(omega*roR*R) )*180/pi
+        return sweep
+    elif CHS == 2:
+        M_ifty = V_ifty/a_sound
+        for nr,rR in enumerate(roR):
+            arg = ( Mcr/M_ifty )**2 - 1
+            Chi = V_ifty/(omega*rR*R)
+
+            if arg < 0:
+                sweep[nr] = 0
+            elif Chi*sqrt( arg ) > 1:
+                sweep[nr] = 0
+            else:
+                sweep[nr] = acos ( Chi * sqrt( arg ) )*180/pi
+        return sweep
+    else:
+        for ix,x in enumerate(roR):
+            if roR[ix] < omega:
+                sweep[ix] = c
+            else:
+                sweep[ix] = R*(x-omega)**Mcr
+        return sweep
 
 #   <------------------------- IMPORT/EXPORT ------------------------->   #
 

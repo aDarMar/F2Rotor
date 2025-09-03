@@ -37,8 +37,13 @@ def initialize_vars(z,geom,dx,J):
     # diameter
     D = 2*geom.R
     x_hub = geom.r_hub/geom.R      			# hub fraction in percentage of total blade radius
-    x_vec = np.arange(x_hub, 1+ dx/geom.R, dx/geom.R)   # blade sections
-    if x_vec[-1] >= 1: x_vec[-1] = 0.99
+    lnt = 0.99 - x_hub # Nondimensional blade length
+    N   = round( lnt/(dx/geom.R) + 1 )
+    print('Inserted dx: '+str(dx) )
+    print('Actual dx  : '+str( lnt/(N-1)*geom.R ) )
+    x_vec = np.linspace(x_hub,0.99,N)
+    #x_vec = np.arange(x_hub, 1+ dx/geom.R, dx/geom.R)   # blade sections
+    #if x_vec[-1] >= 1: x_vec[-1] = 0.99
     
     # velocities
     omega = geom.RPM*2*np.pi/60    # rotational velocity
@@ -308,7 +313,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
 
     # start loop over blade sections
     cp, ct = 0.,0.
-    sects  = [ [],[],[],[],[],[] ]
+    sects  = [ [],[],[],[],[],[],[],[] ]
     for x in x_vec:
         # evaluate section characteristics
         sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
@@ -365,7 +370,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
             else:
                 i += 1
                 if i > 100:
-                    print("Non ci sono soluzioni per wt")
+                    print("WRN: Non ci sono soluzioni per wt")
                     break
                 wt -= y / dy
         
@@ -374,6 +379,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
     
         alpha_i = np.arctan(wt / wa) - phi
         if (alpha_i<0):
+            print("WRN: Alpha_i is negative")
             wt = wtsa
             wa = wasa
             alpha_i = alfaisa
@@ -388,12 +394,14 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
         # Saves data for plotting
         sects[0].append( delct )
         sects[1].append( delcp )
-        sects[2].append( omega*geom.R*np.cos( sweep ) )
-        sects[3].append( cla )                                      # Section Lift Coefficient
-        sects[4].append( np.sqrt( Vinf**2 + (omega*geom.R*x)**2 ) ) # Local Mach Number
+        sects[2].append( omega*geom.R*x*np.cos( sweep ) )
+        sects[3].append( cla )                                              # Section Lift Coefficient
+        sects[4].append( Vr/a_sound ) # Local Mach Number
         sects[5].append( aero.aero_params["Mach_crit"] )
+        sects[6].append( wa/Vinf )                                          # a
+        sects[7].append( wt/(omega*x*geom.R) )
+        #sects[8].append( sweep*180/pi )
     # hub correction
     if hub_corr:
         ct = hub_loss(ct,J,D,geom)
-    
-    return ct,cp,sects
+    return ct,cp,sects,x_vec
