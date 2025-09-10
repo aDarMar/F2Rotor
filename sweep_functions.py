@@ -79,6 +79,13 @@ def sweep_sample(roR_i,CHS,R,Mcr,omega = 0,c = 0,V_ifty = 0):
     elif CHS == 2:
         M_ifty = V_ifty/a_sound
         for nr,rR in enumerate(roR):
+            arg = (omega*rR*R/V_ifty )**2 + 1
+            arg = Mcr/M_ifty / sqrt( arg )
+            if abs( arg ) > 1:
+                sweep[nr] = 0
+            else:
+                sweep[nr] = acos(arg) * 180/pi
+            '''
             arg = ( Mcr/M_ifty )**2 - 1
             Chi = V_ifty/(omega*rR*R)
 
@@ -88,6 +95,8 @@ def sweep_sample(roR_i,CHS,R,Mcr,omega = 0,c = 0,V_ifty = 0):
                 sweep[nr] = 0
             else:
                 sweep[nr] = acos ( Chi * sqrt( arg ) )*180/pi
+            '''
+
         return sweep
     else:
         for ix,x in enumerate(roR):

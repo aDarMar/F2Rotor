@@ -123,7 +123,7 @@ class Aerodynamics():
             Cl_alpha /= (1-M**2)**0.5                              # Mach number correction
         return np.rad2deg(Cl_alpha), np.deg2rad(alpha_0_lift)      # Cl_alpha in 1/rad, alpha_0_lift in rad    
     
-    def clcd1(self, AoA, Re_ref, Re, M):
+    def clcd1(self, AoA, Re_ref, Re, M, sweep = 0, toc = 0.1):
         '''
         This function evaluates lift coefficient and drag coefficient using the aerodynamics method '1'. 
         Further details in the aerodynamics class.
@@ -142,20 +142,58 @@ class Aerodynamics():
         Date: 28/05/2024
         Version: 1.03
         '''
-        lift_coeff = min(self.aero_params['Cl_alpha']*(AoA - self.aero_params['alpha_0_lift'])/math.sqrt(1-M**2), self.aero_params['Cl_max'])    # Positive Stall at Cl = Cl_max    
-        lift_coeff = max(lift_coeff, self.aero_params['Cl_min'])       # Negative Stall at Cl = Cl_min
-        drag_coeff = self.aero_params['Cd']                                        # Default Cd
+
+            # Simple Sweep Theory
+            # lift_coeff = min(self.aero_params['Cl_alpha']*(AoA - self.aero_params['alpha_0_lift'])/math.sqrt( 1-( M*math.cos(sweep) )**2 ), self.aero_params['Cl_max'])    # Positive Stall at Cl = Cl_max    
+
+        lift_coeff = min(self.aero_params['Cl_alpha']*(AoA - self.aero_params['alpha_0_lift']), self.aero_params['Cl_max']) # Incompressible lift coefficient
+        lift_coeff = max(lift_coeff, self.aero_params['Cl_min'])                                                            # Negative Stall at Cl = Cl_min
+        #lift_coeff *= math.cos(sweep)
+        drag_coeff = self.aero_params['Cd']                                                                                 # Default Cd
         if Re < 1e+5:
-            f = -0.4                                    # Empirical factor for Reynolds number correction
+            f = -0.4                                                                                                        # Empirical factor for Reynolds number correction
         elif Re >= 1e+5 and Re < 1e+6:
             f = -1
         else:
             f = -0.15
         if self.Rey_corr:
-            drag_coeff *= (Re/Re_ref)**f                # Empirical Reynolds number correction
+            drag_coeff *= (Re/Re_ref)**f                                                                                    # Empirical Reynolds number correction
+         # Simple Sweep Theory
+        #if self.M_corr:
+        #    lift_coeff /=  math.sqrt( 1-( M*math.cos(sweep) )**2 )            # Prandtl Glauert correction
+        #    lift_coeff *= math.cos(sweep)
+            '''
+            if M > Mdd:
+                lift_coeff /=  math.sqrt( 1-( Mdd*math.cos(sweep) )**2 )*2            # Prandtl Glauert correction
+            else:
+                lift_coeff /=  math.sqrt( 1-( M*math.cos(sweep) )**2 )            # Prandtl Glauert correction
+            lift_coeff *= math.cos(sweep)
+            '''
+        
+        # Compressibility Drag Correction
+        Ka    = 0.87 # Conventional airfoil
+        Mdd   = Ka/math.cos(sweep) - toc/( math.cos(sweep)**2 ) - abs(lift_coeff)/( 10*math.cos(sweep)**3 )            # Korn Equation Corrected for the equivalent straight wing, the lift coefficient has already been scaled with cos(sweep)
+        Mcrit = Mdd - (0.1/80)**(1/3)
+        if M > Mcrit:
+            dCd_wave = 20*( M-Mcrit )**4
+        else:
+            dCd_wave = 0
+        drag_coeff += dCd_wave
+        # Simple Sweep Theory
         if self.M_corr:
-            lift_coeff /=  math.sqrt(1-M**2)            # Prandtl Glauert correction
-        return lift_coeff, drag_coeff
+            lift_coeff = min( lift_coeff*math.cos(sweep)/math.sqrt( 1-( M*math.cos(sweep) )**2 ),self.aero_params['Cl_max'] )              # Prandtl Glauert correction
+        else:
+            lift_coeff *= math.cos(sweep)
+        '''
+            ATTENZIONE: CAPIRE SE VA PRIMA O DOPO KORN
+            if M > Mdd:
+                lift_coeff /=  math.sqrt( 1-( Mdd*math.cos(sweep) )**2 )*2            # Prandtl Glauert correction
+            else:
+                lift_coeff /=  math.sqrt( 1-( M*math.cos(sweep) )**2 )            # Prandtl Glauert correction
+            lift_coeff *= math.cos(sweep)
+            '''
+        
+        return lift_coeff, drag_coeff, Mcrit
     
     def clcd2(self, AoA, Re_ref, Re, M):
         '''

@@ -606,7 +606,8 @@ class Geometry():
         p2 = AF[-1:-half_len-1:-1]                              # define second half
 
         tk_max = max(np.sqrt(np.sum((p2 - p1) ** 2, axis=1)))   # find max thickness comparing coupled upper and lower points (works properly even if the number of points is odd)
-
+        # TEMP
+        tk_max = 0.1
         return tk_max                                           # return the max thickness value
 
     def gen_blade(self,nspan=100, wireframe = True):

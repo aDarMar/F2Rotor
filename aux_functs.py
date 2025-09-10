@@ -1,20 +1,52 @@
-from numpy import linspace
+from numpy import linspace,array
 import matplotlib.pyplot as plt
 from math import pi,acos
+import plot_funcs
 def polar_calc(alphas,Res,Ms):
     Re_v = linspace(Res[0],Res[1],nRe)
     M_v  = linspace(Ms[0],Ms[1],nM)
 
 
-def calc_sects(alphas,aero,Re,M):
-    Re_ref = 1e6
-    nA = 10
+def calc_sects( alphas,aero,Re,M ):
+    Re_ref  = 1e6
+    nA,nM   = 300,50
     alpha_v = linspace(alphas[0],alphas[1],nA)
-    Cl = linspace(0,0,nA)
-    Cd = linspace(0,0,nA)
+    Mach_v  = linspace(0,0.9,nM)
+    Cl      = linspace(0,0,nA)
+    Cd      = linspace(0,0,nA)
+    Cd2     = linspace(0,0,nM)
+    Mcrit   = linspace(0,0,nA)
+    Mcrit2  = linspace(0,0,nM)
     for an,aoa in enumerate(alpha_v):
-        Cl[an],Cd[an] = aero.clcd2( aoa, Re_ref, Re, M )
-    plot_fun(Cl,Cd,alpha_v)
+        Cl[an],Cd[an],Mcrit[an] = aero.clcd1( aoa, Re_ref, Re, M )
+    ach = 8
+    for nM,Mm in enumerate( Mach_v ):
+        t,Cd2[nM],Mcrit2[nM]= aero.clcd1( ach, Re_ref, Re, Mm )
+
+    fig,ax = plt.subplots( 1,2,constrained_layout = True )
+    ax[0].plot(alpha_v*180/pi,Cl)
+    plot_funcs.set_ax( ax[0],[ r"$\alpha$",r'C$_l$'] )
+    
+    ax[1].plot(Cl,Cd)
+    ax[1].set( ylim = (0, 0.1) )
+    plot_funcs.set_ax( ax[1],[ r"C$l$",r'C$_d$'] )
+    fig.suptitle(f"{r'Profile Chacteristics'}\nM = {round(M,3)}{r' Re'} = {Re}", fontsize=30)
+
+    fig,ax = plt.subplots( 1,1,constrained_layout = True )
+    ax2 = ax.twinx()
+    p1 = ax.plot(Mach_v,Cd2,label = r'C$_d$',color = 'k')
+    p2 = ax2.plot(Mach_v,Mcrit2,label = r'M$_{cr}$')
+    p3 = ax2.plot(Mach_v,Mach_v,label = r'M$_{\infty}$',linestyle = ':',color = p2[0].get_color() )
+    plot_funcs.set_ax( ax,[ r"M",r'C$_d$'] )
+    plot_funcs.set_ax( ax2,[ r"M",r'M$_{cr}$'] )
+    ax.set( ylim = (0, 2.25) )
+    ax2.tick_params(axis='y', colors=p2[0].get_color())
+    ax2.yaxis.label.set_color(p2[0].get_color())
+    ax2.set( ylim = (0.3, 0.525) )
+    # plt.yticks(  linspace( 0.325,0.5,5 )    )
+    fig.suptitle(f"{r'Drag vs Mach'}\n{r"$\alpha$"} = {round(ach,3)}", fontsize=30)
+    ax.legend(handles=[p1[0], p2[0], p3[0]],fontsize = 25 )
+    plot_fun(Cl,Cd,alpha_v*180/pi)
 
 
 def plot_fun(Cl,Cd,alpha):
@@ -73,9 +105,14 @@ def prop_geom_plot( res_J,geom,ax ):
         - xxx   : axes object where section data are plotted
     '''
 
-def plot_data( results,geom,roR,omega ):
+def plot_data( res_beta,geom,roR,omega,a_sound,ibeta = 0,beta = 15,betas = [0,0] ):
     '''
 
+    '''
+
+    plot_funcs.beta_plots( res_beta,geom,roR,omega,a_sound,betas )
+
+    plot_funcs.main_plot( res_beta[ibeta],geom,roR,omega,a_sound,beta )
     '''
     # Section Geometries: c/R and teta
     # We assume that only sweep changes
@@ -104,16 +141,17 @@ def plot_data( results,geom,roR,omega ):
     ax[0].set_title('Section Geometry',fontsize = 20)
     # Legend
     ax[0].legend(handles=[p1, p2],fontsize = 16 )#, p3])
-
+    ##########################################################################################
     psw = []
     # Define figures and axes
     # INPUT
-    Jplot = [10,24,49] # indices of J to be plotted in r/R graphs
+    Jplot = [24,24] #[10,24,49] # indices of J to be plotted in r/R graphs
     # GRAPHICS
     colors = ['#E41A1C', '#377EB8', '#4DAF4A', '#FF7F00', '#984EA3',
           '#FFFF33', '#A65628', '#F781BF', '#00CED1', '#999999']
     lines = ['-','--','-.']
     # AXES SETUP
+    # 1
     figs,axs = [],[]
     temp,temp2 = plt.subplots(1,1,constrained_layout = True)    # Ax for eta,Cp,Ct vs J
     figs.append( temp )
@@ -122,9 +160,14 @@ def plot_data( results,geom,roR,omega ):
     axs.append(temp)
     p_coeffs,iAx = [ [],[],[] ],[0,0,1]
     labls = [ ["J","r/R",r"$\chi$"],[ r"$C_T$",r"$C_P$",r"\eta",r"M($ \bar{r} $)",r"M$_{crit}( \bar{r} )$",r"a",r"a^'" ] ] # x and y labels
-    temp,temp2 = plt.subplots(1,2,constrained_layout = True)    # Axes for M(r) vs Xi and a/a' vs Xi
+    # 2
+    temp,temp2 = plt.subplots(1,2,constrained_layout = True)    # Axes for M(r) vs Xi and dCT/dCP vs Xi
     figs.append( temp )
     axs.append( temp2 )
+    # 3
+    #temp,temp2 = plt.subplots(1,2,constrained_layout = True)    # Axes for dCT(r)/dCP(r) vs Xi and a/a' vs Xi
+    #figs.append( temp )
+    #axs.append( temp2 )
     p_sects = [ [ [],[] ] , [ [],[] ] ]
     
     for iS,res_swp in enumerate(results):
@@ -140,10 +183,12 @@ def plot_data( results,geom,roR,omega ):
                 note = 0
                 if iP == 0 and iS == 0:
                     note = f"{str( round(res_swp[5][Jsel],3) )}"
-                p_sects[0][iP].append( multi_plot( Chi,res_swp[6][Jsel][4+iP],ax = axs[2][0],setax = 'no',lab = labls[1][iP+3] ,linecolor = colors[iS],linst = lines[iP],note = note ) )# M(r),Mcrit vs Xi
+                #p_sects[0][iP].append( multi_plot( Chi,res_swp[6][Jsel][4+iP],ax = axs[2][0],setax = 'no',lab = labls[1][iP+3] ,linecolor = colors[iS],linst = lines[iP],note = note ) )# M(r),Mcrit vs Xi
+                p_sects[0][iP].append( multi_plot( roR,res_swp[6][Jsel][4+iP],ax = axs[2][0],setax = 'no',lab = labls[1][iP+3] ,linecolor = colors[iS],linst = lines[iP],note = note ) )# M(r),Mcrit vs Xi
+
                 if iS == 0:
                     note = f"{str( round(res_swp[5][Jsel],3) )}"
-                p_sects[1][iP].append( multi_plot( Chi,res_swp[6][Jsel][6+iP],ax = axs[2][1],setax = 'no',lab = labls[1][iP+5] ,linecolor = colors[iS],linst = lines[iP],note = note  ) )# a(r),a' vs Xi
+                p_sects[1][iP].append( multi_plot( roR,res_swp[6][Jsel][iP+6],ax = axs[2][1],setax = 'no',lab = labls[1][iP+5] ,linecolor = colors[iS],linst = lines[iP],note = note  ) )# a(r),a' vs Xi
     # Axis Setup
     label = [ f"{labls[1][0]}, {labls[1][1]}",labls[1][2],"M",f"{labls[1][3]}, {labls[1][4]}" ]
     tit = ["Coefficienti "]
@@ -152,9 +197,17 @@ def plot_data( results,geom,roR,omega ):
             multi_plot( ax = axs[2][iP],labls = [ labls[0][2],label[2-iP] ],setax = 'only' ) # M(r),Mcrit vs Xi
             #multi_plot( ax = axs[2][1],labls = [ labls[0][2],label[4] ],setax = 'only' ) # a(r),a' vs Xi
     
+    
+    
+    # CT/CP/eta Double axis
+    #ax2 = axs[0].twiny()
+    #ax2.axis["bottom"] = ax2.new_fixed_axis(loc="bottom", offset=(0, 60))
+    #ax2.axis["bottom"].toggle(all=True)
+    #p = ax2.plot( res_swp[7]*omega*geom.R/(pi*a_sound) )
+
     plt.show()
 
-def multi_plot( x = 0,y = 0,ax = 0,labls = ['x','y'],setax = 'both',tit = 'Title',linst = '-',linecolor = 'b',lab = 'data', plots = 0, note = 0 ):
+def multi_plot( x = 0, y = 0, ax = 0, labls = ['x','y'], setax = 'both', tit = 'Title', linst = '-', linecolor = 'b', lab = 'data', plots = 0, note = 0 ):
     if setax == 'only' or setax == 'both':
         ax.grid(True,'major') # set grid
         ax.tick_params( axis='both', which='major', labelsize=15 ) # grid thickness and font size
@@ -172,3 +225,42 @@ def multi_plot( x = 0,y = 0,ax = 0,labls = ['x','y'],setax = 'both',tit = 'Title
     if setax == 'no' or setax =='both':
         p = ax.plot( x,y,color = linecolor,label = lab,linestyle = linst )
         return p
+'''
+
+'''
+def YAPF():
+    # Geometrical Data Plots
+    # Section Geometries: c/R and teta
+    # We assume that only sweep changes
+    # 1.1
+    # c/R and teta
+    fig, ax_g = plt.subplots(1,2,constrained_layout = True)    # Ax for c/R
+    fig.subplots_adjust(right=0.75)
+    twin1 = ax_g[0].twinx() # Ax for beta
+    # Plot
+    p1,   = ax_g[0].plot( roR, geom.fc(roR), "C0", label="c/R")
+    p2,   = twin1.plot( roR, geom.fb(roR), "C1", label=r"$\theta$")
+    # Set Limits
+    ax_g[0].set( ylim = (0, 1),  ylabel= p1.get_label())
+    ax_g[0].tick_params( axis='both', which='major', labelsize=15 )
+    ax_g[0].set_xlabel(  xlabel="r/R",fontsize = 16 )
+    ax_g[0].set_ylabel(  ylabel="c/R",fontsize = 16 )
+
+    twin1.tick_params( axis='both', which='major', labelsize=15 )
+    twin1.set_ylabel(  ylabel = f"{p2.get_label()}[deg]",fontsize = 16 )
+    # y-axis color
+    ax_g[0].yaxis.label.set_color(p1.get_color())
+    twin1.yaxis.label.set_color(p2.get_color())
+    ax_g[0].tick_params(axis='y', colors=p1.get_color())
+    twin1.tick_params(axis='y', colors=p2.get_color())
+    # Grid
+    ax_g[0].grid(True,'major')
+    # Title
+    ax_g[0].set_title('Section Geometry',fontsize = 20)
+    # Legend
+    ax_g[0].legend(handles=[p1, p2],fontsize = 16 )
+    # 1.2
+    # sweeps
+
+    ##########################################################################################
+    '''
