@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 from math import pi,tan,cos
 from numpy import linspace,isnan
 lin_pl = 2
-leg_font = 25
+leg_font,ax_font,lab_font = 25,22,25
 tit_font = 32
-CT_p = 0.35
+CT_p,J_des = 0.3,1.42
 COLORS = ['#E41A1C', '#377EB8', '#4DAF4A', '#FF7F00', '#984EA3',
           '#FFFF33', '#A65628', '#F781BF', '#00CED1', '#999999']
 
@@ -113,11 +113,21 @@ def figure_0( res_beta,omega,geom_obj,a_sound,betas ):
     fig,ax = plt.subplots( 1,1,constrained_layout = True )
     ps,xmax,ymax = [],0,0
     au_ax = ax.twiny()
+    # Multiple Axes Setup
+    fig_m,ax_m = [],[]
+    for iS in range( len(res_beta[0]) ):
+        tf,ta = plt.subplots( 1,1,constrained_layout = True )
+        fig_m.append(tf)
+        ax_m.append(ta)
     for iB,sin_beta in enumerate(res_beta):
         xmax,ymax = 0,0
         for iS, res_sweep in enumerate(sin_beta):
+            ax_au_m = ax_m[iS].twiny()
             col = COLORS[iS]
             tempo = ax.plot( res_sweep[5],res_sweep[4],color = col,linestyle = '-',linewidth = lin_pl*0.85,label = f"{r'$\Lambda_'}{str(iS+1)}$" )
+            tempo = ax_m[iS].plot( res_sweep[5],res_sweep[4],color = col,linestyle = '-',linewidth = lin_pl*0.85,label = f"{r'$\theta_{075}$'}={str(iS+1)}" )
+            pp = ax_au_m.plot( [ JJ*omega*geom_obj.R/(pi*a_sound) for JJ in res_sweep[5] ],[0 for JJ in res_sweep[5]],alpha = 0,linestyle = '-',linewidth = lin_pl,label = r'M$_{\infty}$' )
+
             if iFl:
                 ps.append( tempo[0] )
 
@@ -126,17 +136,23 @@ def figure_0( res_beta,omega,geom_obj,a_sound,betas ):
                 ymax = tempi
                 xmax = res_sweep[4].index(ymax)
                 xmax = res_sweep[5][xmax]
+            ax_m[iS].annotate( str( round(betas[iB],1) ), xy=(xmax, ymax*1.01) )
+            
+            set_ax( ax_au_m,[r"M$_\infty$",r"$\eta$"] )
+            ax_m[iS].set( ylim = (0, 0.9) )
+            set_ax( ax_m[iS],["J",r"$\eta$"] )
+            ax_au_m.grid(False,'major') 
+            
         iFl = False
-
         ax.annotate( str( round(betas[iB],1) ), xy=(xmax, ymax*1.01) )
     #ax.set_xlabel( xlabel=pp[0].get_label(),fontsize = 16 )
     #ax.tick_params( axis='both', which='major', labelsize=15 ) 
     set_ax( ax,["J",r"$\eta$"] )
     pp = au_ax.plot( [ JJ*omega*geom_obj.R/(pi*a_sound) for JJ in res_sweep[5] ],[0 for JJ in res_sweep[5]],alpha = 0,linestyle = '-',linewidth = lin_pl,label = r'M$_{\infty}$' )
     au_ax.spines.bottom.set_position(("axes", 1.2))
-    ax.legend(handles=ps,fontsize = 16 )
-    au_ax.set_xlabel( xlabel=pp[0].get_label(),fontsize = 16 )
-    au_ax.tick_params( axis='both', which='major', labelsize=15 ) 
+    ax.legend( handles=ps,fontsize = leg_font )
+    au_ax.set_xlabel( xlabel=pp[0].get_label(),fontsize = lab_font )
+    au_ax.tick_params( axis='both', which='major', labelsize = ax_font ) 
 
 def figure_1( roR,results,geom_obj ):
     ''' teta, c/R vs r/R and sweep vs r/R'''
@@ -158,14 +174,15 @@ def figure_1( roR,results,geom_obj ):
     au_ax.tick_params(axis='y', colors=p2[0].get_color())
     au_ax.yaxis.label.set_color(p2[0].get_color())
     # Legend
-    ax[0].legend(handles=[p1[0], p2[0]],fontsize = 16 )
-    ax[1].legend(handles=ps,fontsize = 16 )
+    ax[0].legend(handles=[p1[0], p2[0]],fontsize = leg_font )
+    ax[1].legend(handles=ps,fontsize = leg_font )
 
 # Plot for Fixed Beta
 def main_plot( results, geom_obj, roR, omega, a_sound,teta = 15 ):
     
     figure_2( roR,results,geom_obj,omega,a_sound,teta )
-    Jsel = [20,20]#[55,55] #[35,35]
+    Jidx = find_val( results[0][5],J_des,0.05 )
+    Jsel = [Jidx,Jidx]#[55,55] #[35,35]
     # Plots at fixed CT,Beta
     find_CT( results,roR,teta )
     # Plots at fixed J,beta
@@ -186,23 +203,36 @@ def main_plot( results, geom_obj, roR, omega, a_sound,teta = 15 ):
 def figure_2( roR,results,geom_obj,omega,a_sound,teta = 15 ):
     ''' CT,CP,eta vs J'''
     fig,ax = plt.subplots( 1,1,constrained_layout = True )
+    figs,ax2 = plt.subplots(1,3,constrained_layout = True ) # three separate plots
     au_ax  = ax.twinx()
     au_ax2 = ax.twiny()
-
     nan_i = []
-
-
+    labs = [r'C$_T$',r'C$_P$',r'$\eta$']
+    mxx = 0
     for iS, res_sweep in enumerate(results):
         col = COLORS[iS]
-        ax.plot( res_sweep[5],res_sweep[2],color = col,linestyle = '-',linewidth = lin_pl,label = r'C$_T$' )
-        ax.plot( res_sweep[5],res_sweep[3],color = col,linestyle = '--',linewidth = lin_pl,label = r'C$_P$' )
-        au_ax.plot( res_sweep[5],res_sweep[4],color = col,linestyle = '-.',linewidth = lin_pl,label = r'$\eta$' )
+        ax.plot( res_sweep[5],res_sweep[2],color = col,linestyle = '-',linewidth = lin_pl,label = labs[0] )
+        ax.plot( res_sweep[5],res_sweep[3],color = col,linestyle = '--',linewidth = lin_pl,label = labs[1] )
+        au_ax.plot( res_sweep[5],res_sweep[4],color = col,linestyle = '-.',linewidth = lin_pl,label = labs[2] )
+        # Separate Plots
+        idx = find_val( res_sweep[2],CT_p,0.05 )
+        for iP in range(3):
+            ax2[iP].plot( res_sweep[5],res_sweep[2+iP],color = col,linestyle = '-',linewidth = lin_pl,label = labs[iP] )
+            set_ax( ax2[iP],['J',labs[iP]] )
+            #find_last_eta(  )
+            ax2[iP].plot( res_sweep[5][idx],res_sweep[2+iP][idx],color = col,marker='s', markersize=10, markeredgewidth=2, markeredgecolor='black') #linestyle = '-',linewidth = lin_pl,label = labs[iP] )
 
+            #ax2[1].plot( res_sweep[5],res_sweep[3],color = col,linestyle = '-',linewidth = lin_pl,label = r'C$_P$' )
+            #ax2[2].plot( res_sweep[5],res_sweep[4],color = col,linestyle = '-',linewidth = lin_pl,label = r'$\eta$' )
+        
         for ieta,eta in enumerate( res_sweep[4] ):
             if isnan(eta):
                 nan_i.append( res_sweep[5][ieta] )
                 #nan_idx.append( ieta )
                 break
+        mx = max( max(res_sweep[2]),max(res_sweep[3]) )
+        if mx > mxx:
+            mxx = mx
     if len( nan_i )>0:
         Jlim = max( nan_i )
         nlim = res_sweep[5].index( Jlim )
@@ -211,21 +241,43 @@ def figure_2( roR,results,geom_obj,omega,a_sound,teta = 15 ):
         nlim = len( res_sweep[4] )-1
     # Double x-axis with Mach
     Mach = [ res_sweep[5][i]*omega*geom_obj.R/(pi*a_sound) for i in range( nlim+1 ) ]
-    pp = au_ax2.plot( Mach,[0 for JJ in range( nlim+1 )],alpha = 0,linestyle = '-',linewidth = lin_pl,label = r'M$_{\infty}$' )
+    JMach = [0 for JJ in range( nlim+1 )]
+    pp = au_ax2.plot( Mach,JMach,alpha = 0,linestyle = '-',linewidth = lin_pl,label = r'M$_{\infty}$' )
     au_ax2.spines.bottom.set_position(("axes", 1.2))
     # Labels
-    au_ax2.set_xlabel( xlabel=pp[0].get_label(),fontsize = 16 )
-    au_ax2.tick_params( axis='both', which='major', labelsize=15 ) 
-    fig.suptitle(f"{r'Propeller Coefficients'}\n{r'$\theta_{75}$'} = {teta}", fontsize=16)
+    for iP in range(3):
+        au_axs = ax2[iP].twiny()
+        au_axs.plot( Mach,JMach,alpha = 0,linestyle = '-',linewidth = lin_pl,label = r'M$_{\infty}$' )
+        au_axs.set_xlabel( xlabel=pp[0].get_label(),fontsize = lab_font )
+        au_axs.tick_params( axis='both', which='major', labelsize = ax_font ) 
+    
+    figs.suptitle(f"{r'Propeller Coefficients'}\n{r'$\theta_{75}$'} = {teta}", fontsize=tit_font)
+    au_ax2.set_xlabel( xlabel=pp[0].get_label(),fontsize = lab_font )
+    au_ax2.tick_params( axis='both', which='major', labelsize = ax_font ) 
+    fig.suptitle(f"{r'Propeller Coefficients'}\n{r'$\theta_{75}$'} = {teta}", fontsize=tit_font)
     set_ax( ax,["J",r"C$_T$, C$_P$"] )
     set_ax( au_ax,["J",r"$\eta$"] )
     au_ax.grid(False)
     # Set Limits
     
-    ax.set( xlim = (results[0][5][0],Jlim), ylim = (0, 0.35) )
+    ax.set( xlim = (results[0][5][0],Jlim), ylim = (0, mxx*1.05) )
+    for iP in range(2):
+        ax2[iP].set( xlim = (results[0][5][0],Jlim), ylim = (0, mxx*1.05) )
+    ax2[2].set( xlim = (results[0][5][0],Jlim),ylim = (0, 0.85 ) )
     #au_ax.set( xlim = (Mach[0],Mach[-1]), ylim = (0, 0.9) )
     #au_ax.tick_params(axis='y', colors=p2[0].get_color())
     #au_ax.yaxis.label.set_color(p2[0].get_color())
+def find_last_eta( etas,Js ):
+    for ieta,eta in enumerate( etas ):
+        nan_i = []
+        if isnan(eta):
+            #nan_i = Js[ieta] 
+            #nan_idx.append( ieta )
+            return Js[eta]
+    return Js[-1]
+
+
+
 
 def Cl_Cd_dCT_dCP_vs_r( roR,res_sweep,Jsel,iS = 0,teta = 15,ax = 0,au_ax = 0,CT = 'a' ):
     ''' Cl,Cd vs r/R and dCT, dCP vs r/R 
@@ -270,11 +322,11 @@ def set_ax( ax,labls = 'no',tit = 'Title' ):
     ax.tick_params( axis='both', which='major', labelsize=15 ) # grid thickness and font size
     if tit != 'Title':
         ax.set_title( tit,fontsize = 20 )   # set title
-    ax.tick_params(axis='x', labelsize=25)  # Cambia la dimensione dei numeri sull'asse x
-    ax.tick_params(axis='y', labelsize=25)
+    ax.tick_params(axis='x', labelsize=ax_font)  # Cambia la dimensione dei numeri sull'asse x
+    ax.tick_params(axis='y', labelsize=ax_font)
     if labls != 'no':
-        ax.set_xlabel( xlabel=labls[0],fontsize = 25 )
-        ax.set_ylabel( ylabel=labls[1],fontsize = 25 )
+        ax.set_xlabel( xlabel=labls[0],fontsize = lab_font )
+        ax.set_ylabel( ylabel=labls[1],fontsize = lab_font )
 
 def Mcr_Meff_vs_r( roR,res_sweep,Jsel,iS = 0,teta = 15,ax = 0,CT = 'a' ):
     ''' M, Mcr vs r/R
@@ -333,13 +385,13 @@ def Mcr_Meff_vs_r( roR,res_sweep,Jsel,iS = 0,teta = 15,ax = 0,CT = 'a' ):
     #ax.legend(handles=[temp0[0], temp1[0]],fontsize = leg_font )
     #ax.legend(handles=[temp0[0], temp1[0], temp2[0], temp3[0]],fontsize = 16 )
 
-def plot_blade( geom_obj,ax ):
-    xx = linspace( geom_obj.r_hub,geom_obj.R,100 ) #/geom_obj.R,1,100 )
+def plot_blade( geom_obj,ax,labFLG = False ):
+    xx = linspace( geom_obj.r_hub/geom_obj.R,1,100 ) #/geom_obj.R,1,100 )
 
-    sweeps = geom_obj.fs( xx/geom_obj.R )
-    coR    = geom_obj.fc( xx/geom_obj.R )
-    coR    = [ cR*geom_obj.R for cR in coR ] # [ cR/max(coR) for cR in coR ] scale c with respect to the maximum value
-    beta   = geom_obj.fb( xx/geom_obj.R )
+    sweeps = geom_obj.fs( xx )
+    coR    = geom_obj.fc( xx )
+    #coR    = [ cR for cR in coR ] # [ cR/max(coR) for cR in coR ] scale c with respect to the maximum value
+    beta   = geom_obj.fb( xx )
     ingr   = [-tan(sweep*pi/180) for sweep in sweeps] # Integrand function
     mn_ln  = [ 0 for x in xx ]
     lead   = [ 0 for x in xx ]
@@ -358,6 +410,15 @@ def plot_blade( geom_obj,ax ):
     ax.plot( xx,lead,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Leading-edge line' )
     ax.plot( xx,trail,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Trailing-edge line' )
     set_ax( ax )
+    ax.set( xlim = (geom_obj.r_hub/geom_obj.R,1) )#ax.set( xlim = (geom_obj.r_hub,geom_obj.R) )
+    ax.grid(True,which = 'minor')
+    ax.set_ylabel( ylabel='c/R',fontsize = lab_font )
+    ax.minorticks_on()
+    if labFLG:
+        ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)  # Rimuove i ticks e le etichette dell'asse y
+    else:
+        ax.set_xlabel( xlabel='r/R',fontsize = lab_font )
+        
 
 def find_CT( res_beta,roR,teta ):
     CT_choice = CT_p
@@ -367,7 +428,7 @@ def find_CT( res_beta,roR,teta ):
         idx[iS] = find_val( res_sweep[2],CT_choice,tol )
         sect_plot( roR,res_sweep,idx[iS],iS,teta )
 
-def sect_plot( roR,results,Jsel,iS,teta ): 
+def sect_plot( roR,results,Jsel,iS,teta,point_plot = False ): 
     ''' Plots data along span for a given beta,J'''
     
     if isinstance(iS,list) or isinstance(iS,range):

@@ -15,10 +15,10 @@ from plot_funcs import plot_blade
 R     = 2.10#1.9852                                        # Blade radius (m)
 R_hub = 0.291*0+R*0.19                                       # Hub radius (m)  
 N     = 3                                           # Number of blades
-RPM   = 1000                                        # revolutions per minute
+RPM   = 1100                                        # revolutions per minute
 
 pitch       = 0.0                                   # measured from nominal pitch (deg)
-v_J         = np.linspace(0.75,1.25,75) #0.10,2.60,75) #0.152, 2.90, 50)          # range of J=V/nD
+v_J         = np.linspace(0.10,2.60,95)#0.8,1.4,75) ##0.75,1.25,75) #0.10,2.60,75) #0.152, 2.90, 50)          # range of J=V/nD
 beta_sweep  = np.linspace(0,60,7)
 # v_J         = np.linspace(2.40,2.60,2)
 interp_kind = 'akima'
@@ -26,6 +26,7 @@ dx          = 0.0154                                # new spacing between the st
 z           = 6.5                                     # altitude (km)
 V_cruise    = 440/3.6                               # Design Cruise Speed [m/s]
 a_sound     = Atmosphere(z*1000).speed_of_sound
+rho         = Atmosphere(z*1000).density
 # sweep distribution measured at c/4
 sweep_known = []
 #sweep_known.append( [ 0,0,0,0,0,0,0,0,0,0,0 ] )
@@ -56,11 +57,11 @@ if DEBUG:
 
     # sweep distribution measured at c/4
     CHS  = [ 3,1,2,3 ]
-    ipt1 = [ 0,R,R,30 ]
-    ipt2 = [ 1,RPM*2*np.pi/60,RPM*2*np.pi/60,0.7 ]
+    ipt1 = [ 0,R,R,40 ]
+    ipt2 = [ 1,RPM*2*np.pi/60,RPM*2*np.pi/60,0.6 ]
     ipt3 = [ 0,z,z,0 ]
     ipt4 = [ 0,0,V_cruise,0 ]
-    ipt5 = [ Mcr,Mcr,0.7,0 ]
+    ipt5 = [ Mcr,Mcr,0.6,0 ]
     for iC,swp_tp in enumerate(CHS):
          sweep_known.append( sweep_sample( r_R_known,swp_tp,ipt1[iC],ipt5[iC],ipt2[iC],ipt3[iC],ipt4[iC] ) )
     
@@ -105,6 +106,7 @@ Aero = aero.Aerodynamics( 1, True, True, xrot_params )
 af.calc_sects( [ xrot_params['alpha_0_lift'], ( xrot_params['Cl_max']/xrot_params['Cl_alpha'] + xrot_params['alpha_0_lift'] )*1.2],Aero,1e6,0.65 )
 
 beta_res = []
+#grid_flg = [False,False,False,True]
 # rests    = []
 # Blades Plot
 nsweep = len( sweep_known )
@@ -162,8 +164,11 @@ for ibeta,beta75 in enumerate(beta_sweep):
             res_J[5].append( J )
         res_J[7] = g.fs(roR) 
         rests.append( res_J )
-        if ibeta == 3:
-            plot_blade( g,ax_b[iS] ) 
+        if ibeta == 0:
+            grid_flg = True
+            if iS == len(sweep_known) - 1:
+                grid_flg = False
+            plot_blade( g,ax_b[iS],grid_flg ) 
     beta_res.append(rests)
 # --------------------------- Plots --------------------------- # 
 # Array conversion
@@ -183,7 +188,65 @@ for ibeta,beta75 in enumerate(beta_sweep):
 ibeta = np.where(beta_sweep == beta75_plot)[0][0]#beta_sweep.index( beta75_plot )
 af.plot_data( beta_res,g,roR,RPM*2*np.pi/60,a_sound,ibeta,beta75_plot,beta_sweep )
 # af.prop_plot( rests[0] )
+'''
+# CASO 2
+# Max Cp for straight blade
+for iB,res_b in enumerate( beta_res ):
+    temp = max( res_b[0][2] )
+    if temp > max_cp:
+        max_cp = temp
+        idx  = res_b[0][2].index(max_cp)
+        jmax = res_b[0][5][idx]
+        ibetamax = iB
+max_cp,jmax,ibetamax = find_max_cp( beta_res,0 )
+Preq = max_cp*(2*R)**5*rho*(RPM/60)**3
 
+beta_temp = []
+
+while err > tol:
+    for ibeta,beta75 in enumerate(beta_sweep):
+        g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep_known[2], beta75, airfoil_known, pitch,interp_kind )
+        res_J = [ [],[],[],[],[],[],[],[] ] # V_ifty,r@Mcrit,Ct,Cp,eta,J,[sec],[sweep(deg)]
+        for J in v_J:
+            try:
+                ct_3, cp_3, sects, roR = bemt.BEMT_timp(z, J, dx, g, Aero, True, False)
+            except:
+                ct_3 = np.nan
+                cp_3 = np.nan
+                sects = np.full( (len(roR),12),np.nan )
+            # --------------------------- Data Storage --------------------------- #
+            res_J[0].append( J*RPM/60*g.R*2 )                             # V_infty
+            res_J[1].append(-1) #res_J[1].append( find_crit_sec( x,sects[4],sects[5] ) )    # r/R critical
+            res_J[2].append( ct_3 )                                       # Ct
+            res_J[3].append( cp_3 )                                       # Cp
+            res_J[6].append( sects )                                      # 
+            if ct_3 >= 0:
+                #ETA_3.append(J*ct_3/cp_3)
+                res_J[4].append( J*ct_3/cp_3 )
+            else:
+                #ETA_3.append(np.nan)
+                res_J[4].append( np.nan )
+            res_J[5].append( J )
+        res_J[7] = g.fs(roR) 
+        rests.append( res_J )
+        if ibeta == 3:
+            plot_blade( g,ax_b[iS] ) 
+    beta_temp.append(rests)
+    max_cp_new = find_max_cp( beta_temp,0 )
+    Pnew = max_cp*(2*R)**5*rho*(RPM/60)**3
+    err = abs( 1-)
+
+
+def find_max_cp( beta_res,iS ):
+    for iB,res_b in enumerate( beta_res ):
+    temp = max( res_b[iS][2] )
+    if temp > max_cp:
+        max_cp = temp
+        idx  = res_b[iS][2].index(max_cp)
+        jmax = res_b[iS][5][idx]
+        ibetamax = iB
+    return max_cp,jmax,ibetamax
+'''
 '''
 # #####################################################
 # Values obtained by Weick

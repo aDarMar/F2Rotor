@@ -72,7 +72,7 @@ def section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero):
     if aero.aero_method == 1 or aero.aero_method == 2:
         cla = aero.aero_params['Cl_alpha']*np.cos( sweep )
         if aero.M_corr:
-            cla/=(1-(Vr/a_sound)**2)**0.5
+            cla/=(1-(Vr/a_sound*np.cos(sweep))**2)**0.5
         bo = aero.aero_params['alpha_0_lift']
     else: 
         cla, bo = aero.eval_lift_properties(x = x, M = Vr/a_sound)
@@ -111,7 +111,7 @@ def section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i,
         dalpha_c = 0
         
     # thickness effect
-    tmax_c = geom.AF_max_tk(x*geom.R)/chord
+    tmax_c = geom.AF_max_tk(x*geom.R)/chord*0 + 0.1
     if thickness:
         dalpha_t = (4/15) * (lam*sigma/(lam**2 + x**2)) * (tmax_c)
     else:
@@ -121,15 +121,17 @@ def section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i,
     alpha = beta - phi - alpha_i - dalpha_c - dalpha_t
     # correct AoA for aligning with the chord
     alpha += bo
-    
+    Mcrit = 0
     # calculate airfoil coefficients using aero class object
     if aero.aero_method == 1:
-        cl, cd = aero.clcd1(Re_ref =1e+6 ,Re =Vr*chord/ni ,M = Vr/a_sound,AoA=alpha)
+        # With method 1 the corrections are carried inside the function
+        cl, cd, Mcrit = aero.clcd1(Re_ref =1e+6 ,Re =Vr*chord/ni ,M = Vr/a_sound,AoA=alpha,sweep = sweep, toc = tmax_c )
     elif aero.aero_method == 2:
-        cl,cd = aero.clcd2(Re_ref = 1e+6, Re = Vr*chord/ni, M = Vr/a_sound, AoA = alpha)
+        # With this methods the corrections for sweep must be made here in Vr
+        cl,cd = aero.clcd2(Re_ref = 1e+6, Re = Vr*chord/ni, M = Vr/a_sound*np.cos(sweep), AoA = alpha)
+        cl = cl*np.cos( sweep ) # Corrects just section cl_a without alpha
     else: 
         cl, cd = aero.clcd3(AoA = np.rad2deg(alpha), Re_ref = 1e+6, Re = Vr*chord/ni, M = Vr/a_sound, x = x)
-    cl = cl*np.cos( sweep ) # Corrects just section cl_a without alpha
     # calculate section contribute of ct and cp
     delct = (np.pi/8)*((J**2) + ((np.pi*x)**2))*sigma*((cl*np.cos(phi+alpha_i+dalpha_c+dalpha_t))
                                                     - (cd*np.sin(phi+alpha_i+dalpha_c+dalpha_t)))*dx
@@ -137,7 +139,7 @@ def section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i,
     delcp = (np.pi/8)*(np.pi*x)*((J**2)+((np.pi*x)**2))*sigma*((cl*np.sin(phi+alpha_i+dalpha_c+dalpha_t))
                                                                 + (cd*np.cos(phi+alpha_i+dalpha_c+dalpha_t)))*dx
         
-    return delct, delcp
+    return delct, delcp, Mcrit, cl, cd, alpha_i, alpha, beta, phi
 
     
 def hub_loss(ct,J,D,geom):
@@ -197,6 +199,7 @@ def BEMT_timp(z,J,dx,geom,aero, curvature=True, thickness=True, hub_corr=True):
     T,rho,ni,a_sound,D,omega,Vt,Vinf,lam,x_vec,x_hub = initialize_vars(z,geom,dx,J)
 
     # start loop over blade sections
+    sects  = [ [],[],[],[],[],[],[],[],[],[],[],[] ]
     cp, ct = 0.,0.
     for x in x_vec:
         # evaluate section characteristics
@@ -210,15 +213,12 @@ def BEMT_timp(z,J,dx,geom,aero, curvature=True, thickness=True, hub_corr=True):
         wa = Vr*alpha_i*np.cos(phi+alpha_i)
         
         # evaluate section performance
-        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
-        ct += delct
-        cp += delcp
-    
+        ct,cp,sects = evalate_sect( ct,cp,sects,x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness )
     # hub correction
     if hub_corr:
         ct = hub_loss(ct,J,D,geom)
-    
-    return ct,cp
+
+    return ct,cp,sects,x_vec
 
 ##########################################################################################################################################################
 
@@ -313,7 +313,7 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
 
     # start loop over blade sections
     cp, ct = 0.,0.
-    sects  = [ [],[],[],[],[],[],[],[] ]
+    sects  = [ [],[],[],[],[],[],[],[],[],[],[],[] ]
     for x in x_vec:
         # evaluate section characteristics
         sigma, chord, sweep, cla, Vr, phi, beta, bo = section_characteristic(x,geom,Vinf,omega,ni,a_sound,aero)
@@ -371,6 +371,8 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
                 i += 1
                 if i > 100:
                     print("WRN: Non ci sono soluzioni per wt")
+                    print("J :"+str(J))
+                    print("r/R: "+str(x))
                     break
                 wt -= y / dy
         
@@ -380,28 +382,40 @@ def BEMT_tvor(z,J,dx,geom,aero,curvature=True, thickness=False, hub_corr=True):
         alpha_i = np.arctan(wt / wa) - phi
         if (alpha_i<0):
             print("WRN: Alpha_i is negative")
+            print("J :"+str(J))
+            print("r/R: "+str(x))
             wt = wtsa
             wa = wasa
             alpha_i = alfaisa
         
-        
-        # evaluate section performance 
-        delct, delcp = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
-        
-        ct += delct
-        cp += delcp
-        
-        # Saves data for plotting
-        sects[0].append( delct )
-        sects[1].append( delcp )
-        sects[2].append( omega*geom.R*x*np.cos( sweep ) )
-        sects[3].append( cla )                                              # Section Lift Coefficient
-        sects[4].append( Vr/a_sound ) # Local Mach Number
-        sects[5].append( aero.aero_params["Mach_crit"] )
-        sects[6].append( wa/Vinf )                                          # a
-        sects[7].append( wt/(omega*x*geom.R) )
-        #sects[8].append( sweep*180/pi )
+        ct,cp,sects = evalate_sect( ct,cp,sects,x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness )
     # hub correction
     if hub_corr:
         ct = hub_loss(ct,J,D,geom)
     return ct,cp,sects,x_vec
+
+def evalate_sect( ct,cp,sects,x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness ):
+    # evaluate section performance 
+    delct, delcp, Mcrit, cl, cd, alpha_i, alpha, beta, phi = section_performance(x, dx, J, lam, sigma, chord, sweep, geom, aero, alpha_i, beta, bo, phi, Vinf, Vr, wa, wt, omega, ni, a_sound, curvature, thickness)
+    
+    ct += delct
+    cp += delcp
+    
+    # Saves data for plotting
+    sects[0].append( delct )
+    sects[1].append( delcp )
+    sects[2].append( omega*geom.R*x*np.cos( sweep*0 ) )
+    sects[3].append( -1 )                                              # Section Lift Coefficient
+    sects[4].append( Vr*np.cos( sweep )/a_sound ) # Local Mach Number
+    if Mcrit == 0:
+        sects[5].append( aero.aero_params["Mach_crit"] )
+    else:
+        sects[5].append( Mcrit ) # Using Korn Equation
+    sects[6].append( cl )#wa/Vinf )                                          # a
+    sects[7].append( cd )#wt/(omega*x*geom.R) )
+    sects[8].append( alpha_i*180/np.pi )
+    sects[9].append( alpha*180/np.pi )
+    sects[10].append( beta*180/np.pi )
+    sects[11].append( phi*180/np.pi )
+    #sects[8].append( sweep*180/pi )
+    return ct,cp,sects 

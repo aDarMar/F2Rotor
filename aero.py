@@ -172,7 +172,7 @@ class Aerodynamics():
         
         # Compressibility Drag Correction
         Ka    = 0.87 # Conventional airfoil
-        Mdd   = Ka/math.cos(sweep) - toc/( math.cos(sweep)**2 ) - abs(lift_coeff)/( 10*math.cos(sweep)**3 )            # Korn Equation Corrected for the equivalent straight wing, the lift coefficient has already been scaled with cos(sweep)
+        Mdd   = Ka/math.cos(sweep) - toc/( math.cos(sweep)**2 ) - abs(lift_coeff)/( 10*math.cos(sweep) )            # Korn Equation Corrected for the equivalent straight wing, the lift coefficient has already been scaled with cos(sweep)
         Mcrit = Mdd - (0.1/80)**(1/3)
         if M > Mcrit:
             dCd_wave = 20*( M-Mcrit )**4
@@ -181,7 +181,7 @@ class Aerodynamics():
         drag_coeff += dCd_wave
         # Simple Sweep Theory
         if self.M_corr:
-            lift_coeff = min( lift_coeff*math.cos(sweep)/math.sqrt( 1-( M*math.cos(sweep) )**2 ),self.aero_params['Cl_max'] )              # Prandtl Glauert correction
+            lift_coeff = min( lift_coeff/math.sqrt( 1-( M*math.cos(sweep) )**2 ),self.aero_params['Cl_max'] ) *math.cos(sweep)             # Prandtl Glauert correction
         else:
             lift_coeff *= math.cos(sweep)
         '''
