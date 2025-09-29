@@ -181,7 +181,10 @@ class Aerodynamics():
         drag_coeff += dCd_wave
         # Simple Sweep Theory
         if self.M_corr:
-            lift_coeff = min( lift_coeff/math.sqrt( 1-( M*math.cos(sweep) )**2 ),self.aero_params['Cl_max'] ) *math.cos(sweep)             # Prandtl Glauert correction
+            if 1-( M*math.cos(sweep) )**2 < 0:
+                lift_coeff = 1000
+            else:
+                lift_coeff = min( lift_coeff/math.sqrt( 1-( M*math.cos(sweep) )**2 ),self.aero_params['Cl_max'] ) *math.cos(sweep)             # Prandtl Glauert correction
         else:
             lift_coeff *= math.cos(sweep)
         '''

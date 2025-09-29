@@ -6,7 +6,8 @@ import aero
 from sweep_functions import find_crit_sec, sweep_sample
 import aux_functs as af
 from ambiance import Atmosphere 
-from plot_funcs import plot_blade
+from plot_funcs import plot_blade,plot_CT_CP
+from opt_rout import find_P,find_P_n
 # Test case according to data from naca report No. 339 "FULL SCALE WIND TUNNEL TESTS WITH A SERIES OF PROPELLERS OF DIFFERENT DIAMETERS ON A SINGLE FUSELAGE"  
 # by F. E. Weick (1931)  
 
@@ -16,6 +17,7 @@ R     = 2.10#1.9852                                        # Blade radius (m)
 R_hub = 0.291*0+R*0.19                                       # Hub radius (m)  
 N     = 3                                           # Number of blades
 RPM   = 1100                                        # revolutions per minute
+omega = RPM*2*np.pi/60
 
 pitch       = 0.0                                   # measured from nominal pitch (deg)
 v_J         = np.linspace(0.10,2.60,95)#0.8,1.4,75) ##0.75,1.25,75) #0.10,2.60,75) #0.152, 2.90, 50)          # range of J=V/nD
@@ -103,7 +105,7 @@ xrot_params = {
  }
 Aero = aero.Aerodynamics( 1, True, True, xrot_params )
 
-af.calc_sects( [ xrot_params['alpha_0_lift'], ( xrot_params['Cl_max']/xrot_params['Cl_alpha'] + xrot_params['alpha_0_lift'] )*1.2],Aero,1e6,0.65 )
+#af.calc_sects( [ xrot_params['alpha_0_lift'], ( xrot_params['Cl_max']/xrot_params['Cl_alpha'] + xrot_params['alpha_0_lift'] )*1.2],Aero,1e6,0.65 )
 
 beta_res = []
 #grid_flg = [False,False,False,True]
@@ -114,6 +116,13 @@ fig,ax_b = plt.subplots( nsweep,1,constrained_layout = True )
 
 # --------------------------- Calculations --------------------------- # 
 # 
+res,res_status = [],[]
+for iS,sweep in enumerate(sweep_known):
+    g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep, 0, airfoil_known, pitch,interp_kind )
+    temp0,temp = find_P_n( z,g,Aero,rho,omega,V_cruise,dx )
+    res.append(temp)
+    res_status.append(temp0)
+plot_CT_CP(res,g.R,rho,V_cruise,14000)
 for ibeta,beta75 in enumerate(beta_sweep):
     rests = []
     for iS,sweep in enumerate(sweep_known):

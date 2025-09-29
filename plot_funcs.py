@@ -410,7 +410,7 @@ def plot_blade( geom_obj,ax,labFLG = False ):
     ax.plot( xx,lead,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Leading-edge line' )
     ax.plot( xx,trail,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Trailing-edge line' )
     set_ax( ax )
-    ax.set( xlim = (geom_obj.r_hub/geom_obj.R,1) )#ax.set( xlim = (geom_obj.r_hub,geom_obj.R) )
+    ax.set( xlim = (geom_obj.r_hub/geom_obj.R,1),fontsize=lab_font )#ax.set( xlim = (geom_obj.r_hub,geom_obj.R) )
     ax.grid(True,which = 'minor')
     ax.set_ylabel( ylabel='c/R',fontsize = lab_font )
     ax.minorticks_on()
@@ -418,7 +418,31 @@ def plot_blade( geom_obj,ax,labFLG = False ):
         ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)  # Rimuove i ticks e le etichette dell'asse y
     else:
         ax.set_xlabel( xlabel='r/R',fontsize = lab_font )
-        
+
+def plot_CT_CP( res,R,rho,Vreq,Treq ):
+    fig,ax = plt.subplots( 1,2,constrained_layout = True )
+    fig1,ax1 = plt.subplots( 1,2,constrained_layout = True )
+    au_ax = ax1[0].twinx()
+    roR = [ OmR/(R*res[0][2]) for OmR in res[0][5][2] ]
+    for iS,ires in enumerate(res):
+        col = COLORS[iS]
+        ax[0].plot( ires[3],ires[4],color = col,marker='s', markersize=10, markeredgewidth=2, markeredgecolor='black') 
+        ax[0].annotate( f"J = {str( round(ires[0],3) )}, {r"$\theta_{075} = $"}{str( round(ires[1],1) )}", xy=( ires[3]*1.005,ires[4] ),fontsize=lab_font )
+        ax[1].plot( ires[2],(ires[2]*R/pi)**3*rho*(2*R)**2*ires[4]*1e-6,color = col,marker='s', markersize=10, markeredgewidth=2, markeredgecolor='black') 
+        ax[1].annotate( f"J = {str( round(ires[0],3) )}", xy=( ires[2]*1.005,(ires[2]*R/pi)**3*rho*(2*R)**2*ires[4]*1e-6 ),fontsize=lab_font )
+
+        temp0 = ax1[0].plot( roR,ires[5][6], color = col,linestyle = '-',linewidth = lin_pl,label = r'C$_l$' )
+        temp1 = au_ax.plot( roR,ires[5][7], color = col, linestyle = '-.',linewidth =lin_pl,label = r'C$_d$' )
+        temp2 = ax1[1].plot( roR,ires[5][0], color = col,linestyle = '-',linewidth = lin_pl, label = r'dC$_T$' )
+        temp3 = ax1[1].plot( roR,ires[5][1], color = col,linestyle = '-.',linewidth = lin_pl, label = r'dC$_P$' )
+    fig.suptitle(f"{"Power Required for Fixed Thrust and V$_\infty$"}\nV$_\infty = ${round(Vreq,1)}m/s {r"T$_{req} = $"}{Treq}N ", fontsize=tit_font)
+    set_ax( ax[0],[ r"C$_T$",r"C$_P$" ] )
+    set_ax( ax[1],[ r"$\Omega$[1/s]",r"P [MW]" ] )
+    set_ax( ax1[0],[ r"r/R",r'C$_l$'] )
+    set_ax( au_ax,[ r"r/R",r'C$_d$'] )
+    set_ax( ax1[1],[ r"r/R",r'dC$_T$, dC$_P$'] )
+
+def 
 
 def find_CT( res_beta,roR,teta ):
     CT_choice = CT_p

@@ -82,9 +82,7 @@ class Geometry():
             self.fs = Akima1DInterpolator(self.r_R_known, self.sweep_known)
             # Pitch Angle
             self.fb = Akima1DInterpolator(self.r_R_known, self.beta_known)
-            self.beta_known = [beta - self.fb(0.75) + self.beta75 for beta in self.beta_known]
-            self.fb = Akima1DInterpolator(self.r_R_known, self.beta_known)
-            self.interp_kind = 'cubic' # CAMBIAREEEE
+            #self.interp_kind = 'cubic' # CAMBIAREEEE
             # CAPIREEEE
             #self.fx = Akima1DInterpolator(self.R * self.r_R_known, self.x)
             #self.fz = Akima1DInterpolator(self.R * self.r_R_known, self.z)
@@ -94,13 +92,21 @@ class Geometry():
             self.fs = interp1d(self.r_R_known,self.sweep_known, kind=self.interp_kind, fill_value='none')
             # Pitch Angle
             self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
-            self.beta_known = [ beta - self.fb(0.75) + self.beta75 for beta in self.beta_known ]
-            self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
+            
+        self.update_cal(self.beta75)
         # CAPIREEEE
-        self.fx = interp1d(self.R*self.r_R_known,self.x, kind=self.interp_kind, fill_value='none')
-        self.fz = interp1d(self.R*self.r_R_known,self.z, kind=self.interp_kind, fill_value='none')
 
+        self.fx = interp1d(self.R*self.r_R_known,self.x, kind='cubic', fill_value='none')
+        self.fz = interp1d(self.R*self.r_R_known,self.z, kind='cubic', fill_value='none')
 
+    def update_cal(self,beta075):
+        self.beta75    = beta075
+        self.beta_known = [beta - self.fb(0.75) + self.beta75 for beta in self.beta_known]
+        if self.interp_kind == 'akima' or self.interp_kind == 'makima':
+            self.fb = Akima1DInterpolator(self.r_R_known, self.beta_known)
+        else:
+            self.fb = interp1d(self.r_R_known,self.beta_known, kind=self.interp_kind, fill_value='none')
+            
     def airfoil_dir(self):
 
         '''
