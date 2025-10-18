@@ -410,7 +410,8 @@ def plot_blade( geom_obj,ax,labFLG = False ):
     ax.plot( xx,lead,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Leading-edge line' )
     ax.plot( xx,trail,color = 'k',linestyle = '-',linewidth = lin_pl,label = r'Trailing-edge line' )
     set_ax( ax )
-    ax.set( xlim = (geom_obj.r_hub/geom_obj.R,1),fontsize=lab_font )#ax.set( xlim = (geom_obj.r_hub,geom_obj.R) )
+    ax.set( xlim = (geom_obj.r_hub/geom_obj.R,1) )#ax.set( xlim = (geom_obj.r_hub,geom_obj.R) )
+    ax.xaxis.label.set_fontsize(lab_font)
     ax.grid(True,which = 'minor')
     ax.set_ylabel( ylabel='c/R',fontsize = lab_font )
     ax.minorticks_on()
@@ -441,8 +442,6 @@ def plot_CT_CP( res,R,rho,Vreq,Treq ):
     set_ax( ax1[0],[ r"r/R",r'C$_l$'] )
     set_ax( au_ax,[ r"r/R",r'C$_d$'] )
     set_ax( ax1[1],[ r"r/R",r'dC$_T$, dC$_P$'] )
-
-def 
 
 def find_CT( res_beta,roR,teta ):
     CT_choice = CT_p
