@@ -13,7 +13,7 @@ from opt_rout import find_P,find_P_n
 R     = 1.976#1.9852                                        # Blade radius (m)
 R_hub = 0.291*0+R*0.19                                       # Hub radius (m)  
 N     = 4                                           # Number of blades
-RPM   = 1212                                        # revolutions per minute
+RPM   = 1012                                        # revolutions per minute
 omega = RPM*2*np.pi/60
 
 pitch       = 0.0                                   # measured from nominal pitch (deg)
@@ -22,7 +22,7 @@ beta_sweep  = np.linspace(0,60,7)
 # v_J         = np.linspace(2.40,2.60,2)
 interp_kind = 'akima'
 dx          = 0.0154                                # new spacing between the stations used in numerical integration (m)
-z           = 6.5                                     # altitude (km)
+z           = 0.                                     # altitude (km)
 V_cruise    = 440/3.6                               # Design Cruise Speed [m/s]
 a_sound     = Atmosphere(z*1000).speed_of_sound
 rho         = Atmosphere(z*1000).density
