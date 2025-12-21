@@ -1,4 +1,4 @@
-from numpy import linspace,array
+from numpy import linspace,array,isnan
 import matplotlib.pyplot as plt
 from math import pi,acos
 import plot_funcs
@@ -226,6 +226,37 @@ def multi_plot( x = 0, y = 0, ax = 0, labls = ['x','y'], setax = 'both', tit = '
         p = ax.plot( x,y,color = linecolor,label = lab,linestyle = linst )
         return p
 '''
+
+def data_out( res_beta,theta ):
+    ridx = [2,3,4]
+    Hdr = ["Teta","J","CT","CP","Eta"]
+    file_name = "Propeller_Coeffs_Table"
+    with open(file_name, mode='w', encoding='utf-8') as file:
+        lin = ""
+        for txt in Hdr:
+            lin = f"{lin}{txt}\t"
+        file.write(f"{lin}\n")
+        for nbeta,resb in enumerate(res_beta):
+            for nJ,J in enumerate(resb[0][5]):
+                flg = False
+                lin = f"{theta[nbeta]}\t{round(J,2)}\t"
+                for h in ridx:
+                    try:
+                        lin = f"{lin}{round(resb[0][h][nJ],3)}\t"
+                    except:  
+                        lin = f"{lin}NaN\t"
+                        flg = True
+                        break
+                    else:
+                        if isnan(round(resb[0][h][nJ],3)):
+                            lin = f"{lin}NaN\t"
+                            flg = True
+                            break
+                if flg:
+                    break
+                    #lin = f"{theta[nbeta]}{round(J,3)}\t{round(resb[0][2][nJ])}\t{round(resb[0][3][nJ])}'\t'{round(resb[0][4][nJ])}\t"
+                file.write(f"{lin}\n")
+            
 
 '''
 def YAPF():

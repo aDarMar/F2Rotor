@@ -13,19 +13,19 @@ from opt_rout import find_P,find_P_n
 
 
 # INPUT DATA
-R     = 2.10#1.9852                                        # Blade radius (m)
+R     = 1.976#1.9852                                        # Blade radius (m)
 R_hub = 0.291*0+R*0.19                                       # Hub radius (m)  
 N     = 4                                           # Number of blades
-RPM   = 1012                                        # revolutions per minute
+RPM   = 1212                                        # revolutions per minute
 omega = RPM*2*np.pi/60
 
 pitch       = 0.0                                   # measured from nominal pitch (deg)
 v_J         = np.linspace(0.10,2.60,95)#0.8,1.4,75) ##0.75,1.25,75) #0.10,2.60,75) #0.152, 2.90, 50)          # range of J=V/nD
-beta_sweep  = np.linspace(0,60,7)
+beta_sweep  = np.linspace(-10,50,7)
 # v_J         = np.linspace(2.40,2.60,2)
 interp_kind = 'akima'
 dx          = 0.0154                                # new spacing between the stations used in numerical integration (m)
-z           = 0.                                     # altitude (km)
+z           = 4.5                                     # altitude (km)
 V_cruise    = 440/3.6                               # Design Cruise Speed [m/s]
 a_sound     = Atmosphere(z*1000).speed_of_sound
 rho         = Atmosphere(z*1000).density
@@ -41,8 +41,8 @@ sweep_known = []
 Mcr = 0.6 # Airfoil crtical Mach number
 
 
-DEBUG = True
-if DEBUG:
+DEBUG = 2
+if DEBUG == 0:
     # stations along the blade (r/R)
     # r_R_known = [ 0.0940,  0.1587,    0.1905,    0.2857,    0.3810,    0.4762,  0.5714,    0.6667,    0.7619,    0.8571,    0.9524,    1.0000]
     r_R_known = [0.094,0.144,0.194,0.244,0.294,0.344,0.394,0.444,0.494,0.544,0.594,0.619,0.644,0.669,0.694,0.719,0.744,0.769,0.794,0.819,0.829,0.839,0.849,0.859,0.869,0.879,0.889,0.899,0.909,0.919,0.929,0.939,0.949,0.959,0.969,0.979,0.989,0.999]
@@ -69,7 +69,7 @@ if DEBUG:
     
     # Pitch Angle
     beta75_plot = beta_sweep[4]
-else:
+elif DEBUG == 1:
     # stations along the blade (r/R)
     r_R_known  = [ 0.19,0.2,0.292857143,0.398214286,0.498214286,0.598214286,0.698214286,0.798214286,0.898214286,0.946428571,0.99 ]
     # thickness distribution   (t/c)
@@ -78,6 +78,7 @@ else:
     c_R_known  = [ 0.345550265,0.345550265,0.220717781,0.110538336,0.065676998,0.047732463,0.039836868,0.036247961,0.034094617,0.033376835,0.0329 ]
     # pitch distribution measured from the chord (deg)
     beta_known = [ 58.87349081,58.87349081,52.22635514,45.74073153,40.27287413,35.7188407,31.84678,28.77653408,26.09130417,25.00543118,24.22 ]
+    airfoil_known = [ 'custom' for i in r_R_known]  
     # beta75 = 28.0
     # sweep distribution measured at c/4
     CHS  = [ 3,1,2,3 ]
@@ -87,7 +88,33 @@ else:
     ipt4 = [ 0,0,V_cruise,0 ]
     for iC,swp_tp in enumerate(CHS):
          sweep_known.append( sweep_sample( r_R_known,swp_tp,ipt1[iC],Mcr,ipt2[iC],ipt3[iC],ipt4[iC] ) )
-    
+elif DEBUG == 2:
+    r_R_known  = [ 0.117967332,0.162068966,0.196370236,0.224137931,0.299274047,0.398911071,0.501814882,0.601451906,0.701088929,0.802359347,0.903629764,0.95753176,0.999 ]    # stations along the blade (r/R)
+    t_c_known  = [  ]   # thickness distribution   (t/c)   
+    c_R_known  = [ 0.06313933,0.100176367,0.11957672,0.132627866,0.150617284,0.159435626,0.161904762,0.159082892,0.154144621,0.14638448,0.131216931,0.114285714,0.097852667 ]    # chord distribution   (c/R)  
+    beta_known = [ 52.24204489,49.32742423,47.06049705,45.22536553,40.47175086,34.74795595,29.57228842,25.23636476,21.71415465,18.29862236,15.39211506,13.78026732,12.52187264 ]       # pitch distribution measured from the chord (deg)   
+    sweep_known = [ [0 for i in r_R_known] ]        # sweep at sections
+    airfoil_known = [ 'custom' for i in r_R_known]  
+elif DEBUG == 3:
+        # stations along the blade (r/R)
+    r_R_known  = [ 0.117967332,0.162068966,0.196370236,0.224137931,0.299274047,0.398911071,0.501814882,0.601451906,0.701088929,0.802359347,0.903629764,0.95753176,0.999 ]
+    # thickness distribution   (t/c)
+    t_c_known  = [ 0.160065253,0.160065253,0.19954323,0.25050571,0.295008157,0.31725938,0.302903752,0.264143556,0.203132137,0.160783034,0.117 ]
+    # chord distribution   (c/R)
+    c_R_known  = [ 0.06313933,0.100176367,0.11957672,0.132627866,0.150617284,0.159435626,0.161904762,0.159082892,0.154144621,0.14638448,0.131216931,0.114285714,0.097852667 ] 
+    # pitch distribution measured from the chord (deg)
+    beta_known = [ 52.24204489,49.32742423,47.06049705,45.22536553,40.47175086,34.74795595,29.57228842,25.23636476,21.71415465,18.29862236,15.39211506,13.78026732,12.52187264 ]
+    airfoil_known = [ 'custom' for i in r_R_known]  
+    # beta75 = 28.0
+    # sweep distribution measured at c/4
+    CHS  = [ 3,1,2,3 ]
+    ipt1 = [ 0,R,R,50 ]
+    ipt2 = [ 1,RPM*2*np.pi/60,RPM*2*np.pi/60,R_hub/R ]
+    ipt3 = [ 0,z,z,0 ]
+    ipt4 = [ 0,0,V_cruise,0 ]
+    for iC,swp_tp in enumerate(CHS):
+         sweep_known.append( sweep_sample( r_R_known,swp_tp,ipt1[iC],Mcr,ipt2[iC],ipt3[iC],ipt4[iC] ) )
+
 #g = Geometry.Geometry( R, R_hub, N, RPM, r_R_known, c_R_known, beta_known, sweep_known, beta75, airfoil_known, pitch,interp_kind )
 xrot_params = {
     'alpha_0_lift': np.deg2rad(-3.3),
@@ -173,13 +200,14 @@ for ibeta,beta75 in enumerate(beta_sweep):
             res_J[5].append( J )
         res_J[7] = g.fs(roR) 
         rests.append( res_J )
-        if ibeta == 0:
+        if ibeta == 0 and len(sweep_known) > 1:
             grid_flg = True
-            if iS == len(sweep_known) - 1:
+            if iS == len(sweep_known) - 1 :
                 grid_flg = False
             plot_blade( g,ax_b[iS],grid_flg ) 
     beta_res.append(rests)
 # --------------------------- Plots --------------------------- # 
+plot_blade( g,ax_b,False )
 # Array conversion
 #Ct_1  = np.array(CT_1)
 #Cp_1  = np.array(CP_1)
@@ -194,6 +222,7 @@ for ibeta,beta75 in enumerate(beta_sweep):
 #Eta_3=np.array(ETA_3)
 #af.beta_plots( res_beta,g,roR,RPM*2*np.pi/60,a_sound )
 # Plot for Fixed Beta
+af.data_out( beta_res,beta_sweep )
 ibeta = np.where(beta_sweep == beta75_plot)[0][0]#beta_sweep.index( beta75_plot )
 af.plot_data( beta_res,g,roR,RPM*2*np.pi/60,a_sound,ibeta,beta75_plot,beta_sweep )
 # af.prop_plot( rests[0] )

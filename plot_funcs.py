@@ -415,6 +415,7 @@ def plot_blade( geom_obj,ax,labFLG = False ):
     ax.grid(True,which = 'minor')
     ax.set_ylabel( ylabel='c/R',fontsize = lab_font )
     ax.minorticks_on()
+    ax.set_aspect('equal', adjustable='box')
     if labFLG:
         ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)  # Rimuove i ticks e le etichette dell'asse y
     else:
